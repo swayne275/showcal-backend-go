@@ -1,9 +1,11 @@
-package main
+package clientapi
 
 import (
 	"net/http"
 	"strings"
 )
+
+var serverPort = "8080"
 
 func sayHello(w http.ResponseWriter, r *http.Request) {
 	message := r.URL.Path
@@ -13,9 +15,9 @@ func sayHello(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(message))
 }
 
-func main() {
+func StartClientApi() {
 	http.HandleFunc("/", sayHello)
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	if err := http.ListenAndServe(":"+serverPort, nil); err != nil {
 		panic(err)
 	}
 }
