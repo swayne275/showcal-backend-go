@@ -1,3 +1,5 @@
+// Provides the client API
+
 package clientapi
 
 import (
@@ -15,7 +17,8 @@ func sayHello(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(message))
 }
 
-func StartClientApi() {
+// StartClientAPI starts the web server hosting the client API
+func StartClientAPI() {
 	http.HandleFunc("/", sayHello)
 	if err := http.ListenAndServe(":"+serverPort, nil); err != nil {
 		panic(err)

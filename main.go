@@ -7,5 +7,5 @@ import (
 
 func main() {
 	tvshowdata.GetArrowData()
-	webserver.StartClientApi()
+	webserver.StartClientAPI()
 }
