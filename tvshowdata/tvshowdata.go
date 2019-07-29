@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 // countdown represents an upcoming episode of a TV show
@@ -42,6 +43,20 @@ func httpGet(url string) string {
 	return ""
 }
 
+// Properly format time data for go (modify json copy)
+func reformatShowDate(json gjson.Result) gjson.Result {
+	const timeStrFormat = "2006-01-02 15:04:05"
+
+	airDate := gjson.Get(json.String(), "air_date")
+	if airDate.Exists() {
+		formattedAirDate, _ := time.Parse(timeStrFormat, airDate.String())
+		fmt.Println(formattedAirDate)
+		sjson.Set(json.String(), "air_date", formattedAirDate)
+		fmt.Println(gjson.Get(json.String(), "air_date"))
+	}
+	return json
+}
+
 // Parse API response into a countdown struct and return it (default if error)
 func getUpcomingShowData(queryID int) countdown {
 	url := fmt.Sprintf("https://episodate.com/api/show-details?q=%d", queryID)
@@ -52,6 +67,7 @@ func getUpcomingShowData(queryID int) countdown {
 		return countdown{}
 	}
 
+	reformatShowDate(countdownJSON)
 	countdownStruct := countdown{}
 	err := json.Unmarshal([]byte(countdownJSON.String()), &countdownStruct)
 	if err != nil {
