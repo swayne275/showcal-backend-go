@@ -67,15 +67,22 @@ func getUpcomingShowData(queryID int) countdown {
 		return countdown{}
 	}
 
-	reformatShowDate(countdownJSON)
+	formattedCountdownJSON := reformatShowDate(countdownJSON)
+	fmt.Println(formattedCountdownJSON)
 	countdownStruct := countdown{}
-	err := json.Unmarshal([]byte(countdownJSON.String()), &countdownStruct)
+	err := json.Unmarshal([]byte(formattedCountdownJSON.String()), &countdownStruct)
 	if err != nil {
 		fmt.Println("!!! SW err:", "bad countdown conversion")
 		return countdown{}
 	}
 	return countdownStruct
 }
+
+/*
+TODO I need to format into a time.Time as it's going into the struct for this to
+work properly. Not sure how to do that. Should look into JSON unmarshall to see
+how the json -> struct conversion actually works
+*/
 
 // GetArrowData gets the air times of upcoming "Arrow" episodes
 func GetArrowData() {
