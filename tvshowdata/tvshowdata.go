@@ -20,37 +20,59 @@ type countdown struct {
 	AirDate time.Time
 }
 
-// GetArrowData gets the air times of upcoming "Arrow" episodes
-func GetArrowData() {
-	resp, err := http.Get("https://episodate.com/api/show-details?q=29560")
+// Simple HTTP Get that returns the response body as a string ("" if error)
+func httpGet(url string) string {
+	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("!!! SW err:", err)
+		return ""
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK {
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("!!! SW err:", err)
+			return ""
 		}
-		bodyString := string(bodyBytes)
-		countdownJSON := gjson.Get(bodyString, "tvShow.countdown")
-		if !countdownJSON.Exists() {
-			fmt.Println("nil countdown")
-		} else {
-			countdownStruct := countdown{}
-			err := json.Unmarshal([]byte(countdownJSON.String()), &countdownStruct)
-			if err != nil {
-				fmt.Println("bad countdown conversion")
-			}
-			fmt.Println(countdownStruct.Season)
-			fmt.Println(countdownStruct.Episode)
-			fmt.Println(countdownStruct.Name)
-			fmt.Println(countdownStruct.AirDate)
-		}
+		return string(bodyBytes)
 	}
-	const shortForm = "2006-01-02 15:04:05"
+
+	fmt.Println("!!! SW got http status code:", resp.StatusCode)
+	return ""
+}
+
+// Parse API response into a countdown struct and return it (default if error)
+func getUpcomingShowData(queryID int) countdown {
+	url := fmt.Sprintf("https://episodate.com/api/show-details?q=%d", queryID)
+	respStr := httpGet(url)
+	countdownJSON := gjson.Get(respStr, "tvShow.countdown")
+	if !countdownJSON.Exists() {
+		fmt.Println("!!! SW err:", "nil countdown")
+		return countdown{}
+	}
+
+	countdownStruct := countdown{}
+	err := json.Unmarshal([]byte(countdownJSON.String()), &countdownStruct)
+	if err != nil {
+		fmt.Println("!!! SW err:", "bad countdown conversion")
+		return countdown{}
+	}
+	return countdownStruct
+}
+
+// GetArrowData gets the air times of upcoming "Arrow" episodes
+func GetArrowData() {
+	const timeStrFormat = "2006-01-02 15:04:05"
+	const arrowID = 29560
+
+	countdownStruct := getUpcomingShowData(arrowID)
+
+	fmt.Println(countdownStruct.Season)
+	fmt.Println(countdownStruct.Episode)
+	fmt.Println(countdownStruct.Name)
+	fmt.Println(countdownStruct.AirDate)
 	// !!! SW above tells time how to interpret, now need to convert to user local timezone
-	t, _ := time.Parse(shortForm, "2019-10-16 01:00:00")
+	t, _ := time.Parse(timeStrFormat, "2019-10-16 01:00:00")
 	fmt.Println(t)
 }
