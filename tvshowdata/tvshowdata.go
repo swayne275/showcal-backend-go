@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 )
 
 // countdown represents an upcoming episode of a TV show
@@ -43,18 +42,29 @@ func httpGet(url string) string {
 	return ""
 }
 
+// Custom unmarshal to deal with non-RFC 3339 time format
+func unmarshallCountdownJSON(countdownJSON gjson.Result) countdown {
+	countdownStruct := countdown{}
+	err := json.Unmarshal([]byte(countdownJSON.String()), &countdownStruct)
+	if err != nil {
+		fmt.Println("!!! SW err:", "bad countdown conversion")
+		return countdown{}
+	}
+
+	countdownStruct.AirDate = reformatShowDate(countdownJSON)
+	return countdownStruct
+}
+
 // Properly format time data for go (modify json copy)
-func reformatShowDate(json gjson.Result) gjson.Result {
+func reformatShowDate(json gjson.Result) time.Time {
 	const timeStrFormat = "2006-01-02 15:04:05"
 
 	airDate := gjson.Get(json.String(), "air_date")
 	if airDate.Exists() {
 		formattedAirDate, _ := time.Parse(timeStrFormat, airDate.String())
-		fmt.Println(formattedAirDate)
-		sjson.Set(json.String(), "air_date", formattedAirDate)
-		fmt.Println(gjson.Get(json.String(), "air_date"))
+		return formattedAirDate
 	}
-	return json
+	return time.Now() // TODO better error handling
 }
 
 // Parse API response into a countdown struct and return it (default if error)
@@ -66,16 +76,7 @@ func getUpcomingShowData(queryID int) countdown {
 		fmt.Println("!!! SW err:", "nil countdown")
 		return countdown{}
 	}
-
-	formattedCountdownJSON := reformatShowDate(countdownJSON)
-	fmt.Println(formattedCountdownJSON)
-	countdownStruct := countdown{}
-	err := json.Unmarshal([]byte(formattedCountdownJSON.String()), &countdownStruct)
-	if err != nil {
-		fmt.Println("!!! SW err:", "bad countdown conversion")
-		return countdown{}
-	}
-	return countdownStruct
+	return unmarshallCountdownJSON(countdownJSON)
 }
 
 /*
@@ -84,10 +85,9 @@ work properly. Not sure how to do that. Should look into JSON unmarshall to see
 how the json -> struct conversion actually works
 */
 
-// GetArrowData gets the air times of upcoming "Arrow" episodes
-func GetArrowData() {
-	const timeStrFormat = "2006-01-02 15:04:05"
-	const arrowID = 29560
+// GetThe100Data gets the air times of upcoming "The 100" episodes
+func GetThe100Data() {
+	const arrowID = 33514
 
 	countdownStruct := getUpcomingShowData(arrowID)
 
@@ -95,7 +95,4 @@ func GetArrowData() {
 	fmt.Println(countdownStruct.Episode)
 	fmt.Println(countdownStruct.Name)
 	fmt.Println(countdownStruct.AirDate)
-	// !!! SW above tells time how to interpret, now need to convert to user local timezone
-	t, _ := time.Parse(timeStrFormat, "2019-10-16 01:00:00")
-	fmt.Println(t)
 }

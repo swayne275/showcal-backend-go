@@ -6,6 +6,6 @@ import (
 )
 
 func main() {
-	tvshowdata.GetArrowData()
+	tvshowdata.GetThe100Data()
 	webserver.StartClientAPI()
 }
