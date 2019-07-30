@@ -12,12 +12,23 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// countdown represents an upcoming episode of a TV show
-type countdown struct {
+// Countdown represents an upcoming episode of a TV show
+type Countdown struct {
 	Season  float64
 	Episode float64
 	Name    string
 	AirDate time.Time
+}
+
+// BasicShowData tells the show name, and if it's still running
+type BasicShowData struct {
+	Name         string
+	StillRunning bool
+}
+
+// UpcomingEpisodes is the list of future episodes for the show
+type UpcomingEpisodes struct {
+	Episodes []Countdown
 }
 
 // Simple HTTP Get that returns the response body as a string ("" if error)
@@ -43,12 +54,12 @@ func httpGet(url string) string {
 }
 
 // Custom unmarshal to deal with non-RFC 3339 time format
-func unmarshallCountdownJSON(countdownJSON gjson.Result) countdown {
-	countdownStruct := countdown{}
+func unmarshallCountdownJSON(countdownJSON gjson.Result) Countdown {
+	countdownStruct := Countdown{}
 	err := json.Unmarshal([]byte(countdownJSON.String()), &countdownStruct)
 	if err != nil {
 		fmt.Println("!!! SW err:", "bad countdown conversion")
-		return countdown{}
+		return Countdown{}
 	}
 
 	countdownStruct.AirDate = reformatShowDate(countdownJSON)
@@ -68,21 +79,22 @@ func reformatShowDate(json gjson.Result) time.Time {
 }
 
 // Parse API response into a countdown struct and return it (default if error)
-func getUpcomingShowData(queryID int) countdown {
+func getUpcomingShowData(queryID int) Countdown {
 	url := fmt.Sprintf("https://episodate.com/api/show-details?q=%d", queryID)
 	respStr := httpGet(url)
 	countdownJSON := gjson.Get(respStr, "tvShow.countdown")
 	if !countdownJSON.Exists() {
 		fmt.Println("!!! SW err:", "nil countdown")
-		return countdown{}
+		return Countdown{}
 	}
 	return unmarshallCountdownJSON(countdownJSON)
 }
 
 /*
-TODO I need to format into a time.Time as it's going into the struct for this to
-work properly. Not sure how to do that. Should look into JSON unmarshall to see
-how the json -> struct conversion actually works
+TODO check if the show has a null value for "countdown". If so, there's
+not a known next episode, and it cannot be added to the calendar. If there
+is one, we need to look through the episode data to find the next episode,
+and save everything from then on to add to the calendar
 */
 
 // GetThe100Data gets the air times of upcoming "The 100" episodes
