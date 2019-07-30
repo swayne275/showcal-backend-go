@@ -1,5 +1,10 @@
 // Get relevant data about a TV show using the "episodate" API
 
+/*
+TODO error handling as per:
+https://hackernoon.com/golang-handling-errors-gracefully-8e27f1db729f
+*/
+
 package tvshowdata
 
 import (
