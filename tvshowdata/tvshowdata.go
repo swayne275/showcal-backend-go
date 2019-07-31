@@ -93,36 +93,49 @@ func reformatShowDate(json gjson.Result) (time.Time, error) {
 	return formattedAirDate, nil
 }
 
+// Determine if there are likely future episodes of a show or not
+func checkForFutureEpisodes(showData string, ID int) (bool, error) {
+	countdown := gjson.Get(showData, "tvShow.countdown")
+	if !countdown.Exists() {
+		msg := fmt.Sprintf("api returned invalid countdown data for queryID: %d", ID)
+		err := gerrors.Wrapf(gerrors.New("missing tvShow.countdown"), msg)
+		return false, err
+	}
+	if countdown.Type.String() == "Null" {
+		// no known future episodes
+		return false, nil
+	}
+
+	return true, nil
+}
+
 // Parse API response into a countdown struct and return it (default if error)
 func getUpcomingShowData(queryID int) (UpcomingEpisodes, error) {
 	url := fmt.Sprintf("https://episodate.com/api/show-details?q=%d", queryID)
-	respStr, err := httpGet(url)
+	resp, err := httpGet(url)
 	if err != nil {
 		msg := "error calling httpGet wrapper"
 		err = gerrors.Wrapf(err, msg)
 		return UpcomingEpisodes{}, err
 	}
 
-	countdownJSON := gjson.Get(respStr, "tvShow.countdown")
-	if !countdownJSON.Exists() {
-		msg := fmt.Sprintf("api returned invalid countdown data for queryID: %d",
-			queryID)
-		err := gerrors.Wrapf(gerrors.New("missing tvShow.countdown"), msg)
+	hasFutureEpisodes, err := checkForFutureEpisodes(resp, queryID)
+	if err != nil {
+		msg := "Error checking if future episodes exist"
+		err = gerrors.Wrapf(err, msg)
 		return UpcomingEpisodes{}, err
 	}
-	if countdownJSON.Type.String() == "Null" {
-		// no known future episodes
-		msg := fmt.Sprintf("no known future episodes for id %d", queryID)
-		err := gerrors.Wrapf(gerrors.New("No known future episodes"), msg)
-		// TODO return special error type for clients to know
-		return UpcomingEpisodes{}, err
+	if !hasFutureEpisodes {
+		// TODO this isn't an error, unsure how I want to propagate besides empty info?
+		return UpcomingEpisodes{}, nil
 	}
-	//return unmarshallEpisode(countdownJSON)
+
+	// we know the countdown object exists at this point
 	trialEp := UpcomingEpisodes{}
-	episode, err := unmarshallEpisode(countdownJSON)
+	episode, err := unmarshallEpisode(gjson.Get(resp, "tvShow.countdown"))
 	trialEp.Episodes = append(trialEp.Episodes, episode)
+
 	return trialEp, err
-	//return UpcomingEpisodes{}, nil // todo return data once i build fcns to get it
 }
 
 /*
@@ -134,11 +147,10 @@ and save everything from then on to add to the calendar
 
 // GetThe100Data gets the air times of upcoming "The 100" episodes
 func GetThe100Data() {
-	const arrowID = 33514
-	//const friendsID = 3564
+	//const showD = 33514 // The 100
+	const showID = 3564 // Friends
 
-	episodeList, err := getUpcomingShowData(arrowID)
-	//episodeList, err := getUpcomingShowData(friendsID)
+	episodeList, err := getUpcomingShowData(showID)
 	if err != nil {
 		fmt.Println("Error getting the show data:", err)
 		return
@@ -148,5 +160,7 @@ func GetThe100Data() {
 		for _, episode := range episodeList.Episodes {
 			fmt.Printf("%+v\n", episode)
 		}
+	} else {
+		fmt.Println("No future episodes for show ID", showID)
 	}
 }
