@@ -13,8 +13,8 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// Countdown represents an upcoming episode of a TV show
-type Countdown struct {
+// Episode represents an upcoming episode of a TV show
+type Episode struct {
 	Season  float64
 	Episode float64
 	Name    string
@@ -27,9 +27,9 @@ type BasicShowData struct {
 	StillRunning bool
 }
 
-// UpcomingEpisodes is the list of future episodes for the show
+// UpcomingEpisodes is the list of Episodes for the show
 type UpcomingEpisodes struct {
-	Episodes []Countdown
+	Episodes []Episode
 }
 
 // Simple HTTP Get that returns the response body as a string ("" if error)
@@ -59,22 +59,22 @@ func httpGet(url string) (string, error) {
 }
 
 // Custom unmarshal to deal with non-RFC 3339 time format
-func unmarshallCountdownJSON(countdownJSON gjson.Result) (Countdown, error) {
-	countdownStruct := Countdown{}
+func unmarshallEpisode(countdownJSON gjson.Result) (Episode, error) {
+	episode := Episode{}
 	errMsg := fmt.Sprintf("Could not get episodate countdown: %s", countdownJSON.String())
-	err := json.Unmarshal([]byte(countdownJSON.String()), &countdownStruct)
+	err := json.Unmarshal([]byte(countdownJSON.String()), &episode)
 	if err != nil {
 		err = gerrors.Wrapf(err, errMsg)
-		return Countdown{}, err
+		return Episode{}, err
 	}
 
-	countdownStruct.AirDate, err = reformatShowDate(countdownJSON)
+	episode.AirDate, err = reformatShowDate(countdownJSON)
 	if err != nil {
 		err = gerrors.Wrapf(err, errMsg)
-		return Countdown{}, err
+		return Episode{}, err
 	}
 
-	return countdownStruct, nil
+	return episode, nil
 }
 
 // Properly format time data for go (modify json copy)
@@ -94,13 +94,13 @@ func reformatShowDate(json gjson.Result) (time.Time, error) {
 }
 
 // Parse API response into a countdown struct and return it (default if error)
-func getUpcomingShowData(queryID int) (Countdown, error) {
+func getUpcomingShowData(queryID int) (UpcomingEpisodes, error) {
 	url := fmt.Sprintf("https://episodate.com/api/show-details?q=%d", queryID)
 	respStr, err := httpGet(url)
 	if err != nil {
 		msg := "error calling httpGet wrapper"
 		err = gerrors.Wrapf(err, msg)
-		return Countdown{}, err
+		return UpcomingEpisodes{}, err
 	}
 
 	countdownJSON := gjson.Get(respStr, "tvShow.countdown")
@@ -108,16 +108,21 @@ func getUpcomingShowData(queryID int) (Countdown, error) {
 		msg := fmt.Sprintf("api returned invalid countdown data for queryID: %d",
 			queryID)
 		err := gerrors.Wrapf(gerrors.New("missing tvShow.countdown"), msg)
-		return Countdown{}, err
+		return UpcomingEpisodes{}, err
 	}
 	if countdownJSON.Type.String() == "Null" {
 		// no known future episodes
 		msg := fmt.Sprintf("no known future episodes for id %d", queryID)
 		err := gerrors.Wrapf(gerrors.New("No known future episodes"), msg)
 		// TODO return special error type for clients to know
-		return Countdown{}, err
+		return UpcomingEpisodes{}, err
 	}
-	return unmarshallCountdownJSON(countdownJSON)
+	//return unmarshallEpisode(countdownJSON)
+	trialEp := UpcomingEpisodes{}
+	episode, err := unmarshallEpisode(countdownJSON)
+	trialEp.Episodes = append(trialEp.Episodes, episode)
+	return trialEp, err
+	//return UpcomingEpisodes{}, nil // todo return data once i build fcns to get it
 }
 
 /*
@@ -129,18 +134,19 @@ and save everything from then on to add to the calendar
 
 // GetThe100Data gets the air times of upcoming "The 100" episodes
 func GetThe100Data() {
-	//const arrowID = 33514
-	const friendsID = 3564
+	const arrowID = 33514
+	//const friendsID = 3564
 
-	//countdownStruct, err := getUpcomingShowData(arrowID)
-	countdownStruct, err := getUpcomingShowData(friendsID)
+	episodeList, err := getUpcomingShowData(arrowID)
+	//episodeList, err := getUpcomingShowData(friendsID)
 	if err != nil {
-		fmt.Println("Error getting the 100 data:", err)
+		fmt.Println("Error getting the show data:", err)
 		return
 	}
 
-	fmt.Println(countdownStruct.Season)
-	fmt.Println(countdownStruct.Episode)
-	fmt.Println(countdownStruct.Name)
-	fmt.Println(countdownStruct.AirDate)
+	if len(episodeList.Episodes) > 0 {
+		for _, episode := range episodeList.Episodes {
+			fmt.Printf("%+v\n", episode)
+		}
+	}
 }
