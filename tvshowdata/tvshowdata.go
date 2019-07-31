@@ -16,11 +16,13 @@ import (
 )
 
 // Episode represents an upcoming episode of a TV show
+// Not using struct tags for casing consistency upon json.Marshal
+// Would be nice if this was supported: AirDate time.Time `time:"2006-01-02 15:04:05"`
 type Episode struct {
-	Season  float64
-	Episode float64
-	Name    string
-	AirDate time.Time
+	Season  float64   //`json:"season"`
+	Episode float64   //`json:"episode"`
+	Name    string    //`json:"name"`
+	AirDate time.Time // can't put struct tag due to non RFC 3339 format
 }
 
 // UpcomingEpisodes is the list of Episodes for the show
@@ -90,7 +92,7 @@ func reformatShowDate(json gjson.Result) (time.Time, error) {
 }
 
 // Determine if there are likely future episodes of a show or not
-func checkForFutureEpisodes(showData string, ID int) (bool, error) {
+func checkForFutureEpisodes(showData string, ID int64) (bool, error) {
 	countdown := gjson.Get(showData, "tvShow.countdown")
 	if !countdown.Exists() {
 		msg := fmt.Sprintf("api returned invalid countdown data for queryID: %d", ID)
@@ -140,7 +142,7 @@ func parseUpcomingEpisodes(showData string) (UpcomingEpisodes, error) {
 }
 
 // Get a list of upcoming shows for a particular Episodate query ID
-func getUpcomingShows(queryID int) (UpcomingEpisodes, error) {
+func getUpcomingShows(queryID int64) (UpcomingEpisodes, error) {
 	url := fmt.Sprintf("https://episodate.com/api/show-details?q=%d", queryID)
 	resp, err := httpGet(url)
 	if err != nil {
@@ -163,26 +165,13 @@ func getUpcomingShows(queryID int) (UpcomingEpisodes, error) {
 	return parseUpcomingEpisodes(resp)
 }
 
-/*
-TODO check if the show has a null value for "countdown". If so, there's
-not a known next episode, and it cannot be added to the calendar. If there
-is one, we need to look through the episode data to find the next episode,
-and save everything from then on to add to the calendar
-*/
-
 // GetShowData gets the air times of upcoming episodes for the given queryID
-func GetShowData(queryID int) {
+func GetShowData(queryID int64) (bool, UpcomingEpisodes) {
 	episodeList, err := getUpcomingShows(queryID)
 	if err != nil {
 		fmt.Println("Error getting the show data:", err)
-		return
+		return false, UpcomingEpisodes{}
 	}
 
-	if len(episodeList.Episodes) > 0 {
-		for _, episode := range episodeList.Episodes {
-			fmt.Printf("%+v\n", episode)
-		}
-	} else {
-		fmt.Println("No future episodes for show ID", queryID)
-	}
+	return (len(episodeList.Episodes) > 0), episodeList
 }
