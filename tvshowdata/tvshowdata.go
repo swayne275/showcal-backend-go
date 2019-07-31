@@ -17,10 +17,11 @@ import (
 
 // Episode represents an upcoming episode of a TV show
 type Episode struct {
-	Season  float64
-	Episode float64
-	Name    string
-	AirDate time.Time
+	Season  float64   `json:"season"`
+	Episode float64   `json:"episode"`
+	Name    string    `json:"name"`
+	AirDate time.Time // can't put struct tag due to non RFC 3339 format
+	//AirDate time.Time `time:"2006-01-02 15:04:05"` // format doesn't work for unmarshall
 }
 
 // UpcomingEpisodes is the list of Episodes for the show
