@@ -13,6 +13,12 @@ import (
 	"github.com/swayne275/gerrors"
 )
 
+/*
+TODO
+- standardize error format as JSON
+- endpoint for searching by string, returning basic show structs as response
+*/
+
 const serverPort = "8080"
 
 type showID struct {
@@ -48,7 +54,21 @@ func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tvshowdata.GetShowData(id.ID)
+	haveEpisodes, episodes := tvshowdata.GetShowData(id.ID)
+	if haveEpisodes {
+		output, err := json.Marshal(episodes)
+		if err != nil {
+			msg := "Unable to process upcoming shows"
+			err = gerrors.Wrapf(err, msg)
+			fmt.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("content-type", "application/json")
+		w.Write(output)
+	} else {
+		http.Error(w, "No upcoming episodes", http.StatusNotFound)
+	}
 }
 
 // StartClientAPI starts the web server hosting the client API

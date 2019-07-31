@@ -16,12 +16,13 @@ import (
 )
 
 // Episode represents an upcoming episode of a TV show
+// Not using struct tags for casing consistency upon json.Marshal
+// Would be nice if this was supported: AirDate time.Time `time:"2006-01-02 15:04:05"`
 type Episode struct {
-	Season  float64   `json:"season"`
-	Episode float64   `json:"episode"`
-	Name    string    `json:"name"`
+	Season  float64   //`json:"season"`
+	Episode float64   //`json:"episode"`
+	Name    string    //`json:"name"`
 	AirDate time.Time // can't put struct tag due to non RFC 3339 format
-	//AirDate time.Time `time:"2006-01-02 15:04:05"` // format doesn't work for unmarshall
 }
 
 // UpcomingEpisodes is the list of Episodes for the show
@@ -164,26 +165,13 @@ func getUpcomingShows(queryID int64) (UpcomingEpisodes, error) {
 	return parseUpcomingEpisodes(resp)
 }
 
-/*
-TODO check if the show has a null value for "countdown". If so, there's
-not a known next episode, and it cannot be added to the calendar. If there
-is one, we need to look through the episode data to find the next episode,
-and save everything from then on to add to the calendar
-*/
-
 // GetShowData gets the air times of upcoming episodes for the given queryID
-func GetShowData(queryID int64) {
+func GetShowData(queryID int64) (bool, UpcomingEpisodes) {
 	episodeList, err := getUpcomingShows(queryID)
 	if err != nil {
 		fmt.Println("Error getting the show data:", err)
-		return
+		return false, UpcomingEpisodes{}
 	}
 
-	if len(episodeList.Episodes) > 0 {
-		for _, episode := range episodeList.Episodes {
-			fmt.Printf("%+v\n", episode)
-		}
-	} else {
-		fmt.Println("No future episodes for show ID", queryID)
-	}
+	return (len(episodeList.Episodes) > 0), episodeList
 }
