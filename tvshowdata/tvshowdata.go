@@ -1,5 +1,7 @@
 // Get relevant data about a TV show using the "episodate" API
 
+// TODO need to get user's timezone down to here for comparison
+
 package tvshowdata
 
 import (
@@ -13,23 +15,17 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// Countdown represents an upcoming episode of a TV show
-type Countdown struct {
+// Episode represents an upcoming episode of a TV show
+type Episode struct {
 	Season  float64
 	Episode float64
 	Name    string
 	AirDate time.Time
 }
 
-// BasicShowData tells the show name, and if it's still running
-type BasicShowData struct {
-	Name         string
-	StillRunning bool
-}
-
-// UpcomingEpisodes is the list of future episodes for the show
+// UpcomingEpisodes is the list of Episodes for the show
 type UpcomingEpisodes struct {
-	Episodes []Countdown
+	Episodes []Episode
 }
 
 // Simple HTTP Get that returns the response body as a string ("" if error)
@@ -59,22 +55,22 @@ func httpGet(url string) (string, error) {
 }
 
 // Custom unmarshal to deal with non-RFC 3339 time format
-func unmarshallCountdownJSON(countdownJSON gjson.Result) (Countdown, error) {
-	countdownStruct := Countdown{}
+func unmarshallEpisode(countdownJSON gjson.Result) (Episode, error) {
+	episode := Episode{}
 	errMsg := fmt.Sprintf("Could not get episodate countdown: %s", countdownJSON.String())
-	err := json.Unmarshal([]byte(countdownJSON.String()), &countdownStruct)
+	err := json.Unmarshal([]byte(countdownJSON.String()), &episode)
 	if err != nil {
 		err = gerrors.Wrapf(err, errMsg)
-		return Countdown{}, err
+		return Episode{}, err
 	}
 
-	countdownStruct.AirDate, err = reformatShowDate(countdownJSON)
+	episode.AirDate, err = reformatShowDate(countdownJSON)
 	if err != nil {
 		err = gerrors.Wrapf(err, errMsg)
-		return Countdown{}, err
+		return Episode{}, err
 	}
 
-	return countdownStruct, nil
+	return episode, nil
 }
 
 // Properly format time data for go (modify json copy)
@@ -93,24 +89,78 @@ func reformatShowDate(json gjson.Result) (time.Time, error) {
 	return formattedAirDate, nil
 }
 
-// Parse API response into a countdown struct and return it (default if error)
-func getUpcomingShowData(queryID int) (Countdown, error) {
+// Determine if there are likely future episodes of a show or not
+func checkForFutureEpisodes(showData string, ID int) (bool, error) {
+	countdown := gjson.Get(showData, "tvShow.countdown")
+	if !countdown.Exists() {
+		msg := fmt.Sprintf("api returned invalid countdown data for queryID: %d", ID)
+		err := gerrors.Wrapf(gerrors.New("missing tvShow.countdown"), msg)
+		return false, err
+	}
+	if countdown.Type.String() == "Null" {
+		// no known future episodes
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func parseUpcomingEpisodes(showData string) (UpcomingEpisodes, error) {
+	upcomingEpisodes := UpcomingEpisodes{}
+	allEpisodes := gjson.Get(showData, "tvShow.episodes")
+	if !allEpisodes.Exists() || !allEpisodes.IsArray() {
+		msg := fmt.Sprintf("invalid data given to parseUpcomingEpisodes: %s", showData)
+		err := gerrors.Wrapf(gerrors.New("no episode list in api response"), msg)
+		return UpcomingEpisodes{}, err
+	}
+
+	// declare error here to preserve any error from the ForEach loop
+	var err error
+	now := time.Now()
+
+	allEpisodes.ForEach(func(key, value gjson.Result) bool {
+		episode := Episode{}
+		episode, err = unmarshallEpisode(value)
+		if err != nil {
+			msg := "Could not unmarshal episode from API"
+			err = gerrors.Wrapf(err, msg)
+			// TODO get this error propagated up
+			return false
+		}
+
+		if episode.AirDate.After(now) {
+			// TODO add to list
+			upcomingEpisodes.Episodes = append(upcomingEpisodes.Episodes, episode)
+		}
+
+		return true // keep iterating
+	})
+
+	return upcomingEpisodes, err
+}
+
+// Get a list of upcoming shows for a particular Episodate query ID
+func getUpcomingShows(queryID int) (UpcomingEpisodes, error) {
 	url := fmt.Sprintf("https://episodate.com/api/show-details?q=%d", queryID)
-	respStr, err := httpGet(url)
+	resp, err := httpGet(url)
 	if err != nil {
 		msg := "error calling httpGet wrapper"
 		err = gerrors.Wrapf(err, msg)
-		return Countdown{}, err
+		return UpcomingEpisodes{}, err
 	}
 
-	countdownJSON := gjson.Get(respStr, "tvShow.countdown")
-	if !countdownJSON.Exists() {
-		fmt.Println("!!! SW err:", "nil countdown")
-		msg := fmt.Sprintf("no countdown data for queryID: %d", queryID)
-		err := gerrors.Wrapf(gerrors.New("missint tvShow.countdown"), msg)
-		return Countdown{}, err
+	hasFutureEpisodes, err := checkForFutureEpisodes(resp, queryID)
+	if err != nil {
+		msg := "Error checking if future episodes exist"
+		err = gerrors.Wrapf(err, msg)
+		return UpcomingEpisodes{}, err
 	}
-	return unmarshallCountdownJSON(countdownJSON)
+	if !hasFutureEpisodes {
+		// TODO this isn't an error, unsure how I want to propagate besides empty info?
+		return UpcomingEpisodes{}, nil
+	}
+
+	return parseUpcomingEpisodes(resp)
 }
 
 /*
@@ -120,18 +170,19 @@ is one, we need to look through the episode data to find the next episode,
 and save everything from then on to add to the calendar
 */
 
-// GetThe100Data gets the air times of upcoming "The 100" episodes
-func GetThe100Data() {
-	const arrowID = 33514
-
-	countdownStruct, err := getUpcomingShowData(arrowID)
+// GetShowData gets the air times of upcoming episodes for the given queryID
+func GetShowData(queryID int) {
+	episodeList, err := getUpcomingShows(queryID)
 	if err != nil {
-		fmt.Println("Error getting the 100 data:", err)
+		fmt.Println("Error getting the show data:", err)
 		return
 	}
 
-	fmt.Println(countdownStruct.Season)
-	fmt.Println(countdownStruct.Episode)
-	fmt.Println(countdownStruct.Name)
-	fmt.Println(countdownStruct.AirDate)
+	if len(episodeList.Episodes) > 0 {
+		for _, episode := range episodeList.Episodes {
+			fmt.Printf("%+v\n", episode)
+		}
+	} else {
+		fmt.Println("No future episodes for show ID", queryID)
+	}
 }
