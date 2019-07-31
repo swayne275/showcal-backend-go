@@ -28,14 +28,6 @@ type UpcomingEpisodes struct {
 	Episodes []Episode
 }
 
-// BasicShowData contains basic info about the show
-type BasicShowData struct {
-	Show         string
-	ID           int
-	Name         string
-	StillRunning bool
-}
-
 // Simple HTTP Get that returns the response body as a string ("" if error)
 func httpGet(url string) (string, error) {
 	errMsg := fmt.Sprintf("error fetching data from episodate api for url: %s", url)
