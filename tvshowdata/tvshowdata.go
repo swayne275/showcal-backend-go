@@ -10,6 +10,7 @@ package tvshowdata
 import (
 	"encoding/json"
 	"fmt"
+	"gerrors"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -37,60 +38,82 @@ type UpcomingEpisodes struct {
 }
 
 // Simple HTTP Get that returns the response body as a string ("" if error)
-func httpGet(url string) string {
+func httpGet(url string) (string, error) {
+	errMsg := fmt.Sprintf("error fetching data from episodate api for url: %s", url)
 	resp, err := http.Get(url)
+
 	if err != nil {
-		fmt.Println("!!! SW err:", err)
-		return ""
+		err = gerrors.Wrapf(err, errMsg)
+		return "", err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusOK {
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("!!! SW err:", err)
-			return ""
-		}
-		return string(bodyBytes)
+	if resp.StatusCode != http.StatusOK {
+		newErr := fmt.Sprintf("Got HTTP StatusCode: %d", resp.StatusCode)
+		err = gerrors.Wrapf(gerrors.New(newErr), errMsg)
+		return "", err
 	}
 
-	fmt.Println("!!! SW got http status code:", resp.StatusCode)
-	return ""
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		err = gerrors.Wrapf(err, errMsg)
+		return "", err
+	}
+
+	return string(bodyBytes), nil
 }
 
 // Custom unmarshal to deal with non-RFC 3339 time format
-func unmarshallCountdownJSON(countdownJSON gjson.Result) Countdown {
+func unmarshallCountdownJSON(countdownJSON gjson.Result) (Countdown, error) {
 	countdownStruct := Countdown{}
+	errMsg := fmt.Sprintf("Could not get episodate countdown: %s", countdownJSON.String())
 	err := json.Unmarshal([]byte(countdownJSON.String()), &countdownStruct)
 	if err != nil {
-		fmt.Println("!!! SW err:", "bad countdown conversion")
-		return Countdown{}
+		err = gerrors.Wrapf(err, errMsg)
+		return Countdown{}, err
 	}
 
-	countdownStruct.AirDate = reformatShowDate(countdownJSON)
-	return countdownStruct
+	countdownStruct.AirDate, err = reformatShowDate(countdownJSON)
+	if err != nil {
+		err = gerrors.Wrapf(err, errMsg)
+		return Countdown{}, err
+	}
+
+	return countdownStruct, nil
 }
 
 // Properly format time data for go (modify json copy)
-func reformatShowDate(json gjson.Result) time.Time {
+func reformatShowDate(json gjson.Result) (time.Time, error) {
 	const timeStrFormat = "2006-01-02 15:04:05"
 
 	airDate := gjson.Get(json.String(), "air_date")
-	if airDate.Exists() {
-		formattedAirDate, _ := time.Parse(timeStrFormat, airDate.String())
-		return formattedAirDate
+	if !airDate.Exists() {
+		msg := fmt.Sprintf("invalid data given to reformatShowData: %s", json.String())
+		err := gerrors.Wrapf(gerrors.New("no date to convert"), msg)
+		return time.Now(), err
 	}
-	return time.Now() // TODO better error handling
+
+	formattedAirDate, _ := time.Parse(timeStrFormat, airDate.String())
+
+	return formattedAirDate, nil
 }
 
 // Parse API response into a countdown struct and return it (default if error)
-func getUpcomingShowData(queryID int) Countdown {
+func getUpcomingShowData(queryID int) (Countdown, error) {
 	url := fmt.Sprintf("https://episodate.com/api/show-details?q=%d", queryID)
-	respStr := httpGet(url)
+	respStr, err := httpGet(url)
+	if err != nil {
+		msg := "error calling httpGet wrapper"
+		err = gerrors.Wrapf(err, msg)
+		return Countdown{}, err
+	}
+
 	countdownJSON := gjson.Get(respStr, "tvShow.countdown")
 	if !countdownJSON.Exists() {
 		fmt.Println("!!! SW err:", "nil countdown")
-		return Countdown{}
+		msg := fmt.Sprintf("no countdown data for queryID: %d", queryID)
+		err := gerrors.Wrapf(gerrors.New("missint tvShow.countdown"), msg)
+		return Countdown{}, err
 	}
 	return unmarshallCountdownJSON(countdownJSON)
 }
@@ -106,7 +129,11 @@ and save everything from then on to add to the calendar
 func GetThe100Data() {
 	const arrowID = 33514
 
-	countdownStruct := getUpcomingShowData(arrowID)
+	countdownStruct, err := getUpcomingShowData(arrowID)
+	if err != nil {
+		fmt.Println("Error getting the 100 data:", err)
+		return
+	}
 
 	fmt.Println(countdownStruct.Season)
 	fmt.Println(countdownStruct.Episode)
