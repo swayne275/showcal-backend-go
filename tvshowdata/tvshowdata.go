@@ -105,9 +105,16 @@ func getUpcomingShowData(queryID int) (Countdown, error) {
 
 	countdownJSON := gjson.Get(respStr, "tvShow.countdown")
 	if !countdownJSON.Exists() {
-		fmt.Println("!!! SW err:", "nil countdown")
-		msg := fmt.Sprintf("no countdown data for queryID: %d", queryID)
-		err := gerrors.Wrapf(gerrors.New("missint tvShow.countdown"), msg)
+		msg := fmt.Sprintf("api returned invalid countdown data for queryID: %d",
+			queryID)
+		err := gerrors.Wrapf(gerrors.New("missing tvShow.countdown"), msg)
+		return Countdown{}, err
+	}
+	if countdownJSON.Type.String() == "Null" {
+		// no known future episodes
+		msg := fmt.Sprintf("no known future episodes for id %d", queryID)
+		err := gerrors.Wrapf(gerrors.New("No known future episodes"), msg)
+		// TODO return special error type for clients to know
 		return Countdown{}, err
 	}
 	return unmarshallCountdownJSON(countdownJSON)
@@ -122,9 +129,11 @@ and save everything from then on to add to the calendar
 
 // GetThe100Data gets the air times of upcoming "The 100" episodes
 func GetThe100Data() {
-	const arrowID = 33514
+	//const arrowID = 33514
+	const friendsID = 3564
 
-	countdownStruct, err := getUpcomingShowData(arrowID)
+	//countdownStruct, err := getUpcomingShowData(arrowID)
+	countdownStruct, err := getUpcomingShowData(friendsID)
 	if err != nil {
 		fmt.Println("Error getting the 100 data:", err)
 		return
