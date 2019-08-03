@@ -43,9 +43,8 @@ func sayHello(w http.ResponseWriter, r *http.Request) {
 
 func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
 	if err != nil {
-		msg := "Unable to get query ID from getUpcomingEpisodes body"
+		msg := "Unable to get json body from getUpcomingEpisodes"
 		err = gerrors.Wrapf(err, msg)
 		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -77,6 +76,11 @@ func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 	} else {
 		http.Error(w, "No upcoming episodes", http.StatusNotFound)
 	}
+}
+
+func searchUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
 }
 
 // StartClientAPI starts the web server hosting the client API
