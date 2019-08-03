@@ -7,11 +7,11 @@ package tvshowdata
 import (
 	"encoding/json"
 	"fmt"
-	"gerrors"
 	"io/ioutil"
 	"net/http"
 	"time"
 
+	"github.com/swayne275/gerrors"
 	"github.com/tidwall/gjson"
 )
 
