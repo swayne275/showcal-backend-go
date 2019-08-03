@@ -103,9 +103,9 @@ func searchUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO get candidate episodes, write back
-	haveCandidates, candidateEpisodes := tvshowdata.GetCandidateEpisodes(query.Query)
+	haveCandidates, candidateShows := tvshowdata.GetCandidateShows(query.Query)
 	if haveCandidates {
-		output, err = json.Marshal(episodes)
+		output, err = json.Marshal(candidateShows)
 		if err != nil {
 			msg := fmt.Sprintf("Unable to process candidate shows in %s", epSearchEndpoint)
 			err = gerrors.Wrapf(err, msg)
@@ -116,7 +116,7 @@ func searchUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
 		w.Write(output)
 	} else {
-		http.Error(w, "No episodes matching that query", http.StatusNotFound)
+		http.Error(w, "No shows matching that query", http.StatusNotFound)
 	}
 }
 
