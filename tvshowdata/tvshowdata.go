@@ -2,8 +2,7 @@
 
 // TODO need to get user's timezone down to here for comparison
 
-// TODO continue by unmarshaliing the Show type and finishing some
-// other TODOs
+// TODO figure out how to organize this (utilities, biz logic, etc)
 
 package tvshowdata
 
@@ -21,12 +20,37 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+const (
+	// episode airdate format provided by the API
+	timeStrFormat = "2006-01-02 15:04:05"
+
+	// gjson variable types (<>.Type.String()
+	gjsonString = "String"
+	gjsonJSON   = "JSON"
+	gjsonNull   = "Null"
+
+	// episodate unpopulated endpoints used
+	upShowSearch  = "https://www.episodate.com/api/search?q=%s"
+	upShowDetails = "https://episodate.com/api/show-details?q=%d"
+)
+
+// getShowSearchURL returns the endpoint to search for shows matching query
+func getShowSearchURL(query string) string {
+	htmlQuery := url.QueryEscape(query)
+	return fmt.Sprintf(upShowSearch, htmlQuery)
+}
+
+// getShowDetailsURL returns the endpoint to get show details for id
+func getShowDetailsURL(id int64) string {
+	return fmt.Sprintf(upShowDetails, id)
+}
+
 // Episode represents an upcoming episode of a TV show
 type Episode struct {
-	Season  float64 `json:"season"`
-	Episode float64 `json:"episode"`
-	Name    string  `json:"name"`
-	AirDate Time    `json:"air_date"`
+	Season  int64  `json:"season"`
+	Episode int64  `json:"episode"`
+	Name    string `json:"name"`
+	AirDate Time   `json:"air_date"`
 }
 
 // Time is a custom time to properly unmarshal non-RFC 3339 time from API
@@ -36,7 +60,6 @@ type Time struct {
 
 // UnmarshalJSON reformats API given time as RFC 3339, when Time struct used
 func (t *Time) UnmarshalJSON(data []byte) error {
-	const timeStrFormat = "2006-01-02 15:04:05"
 	var s string
 
 	if err := json.Unmarshal(data, &s); err != nil {
@@ -59,7 +82,7 @@ type UpcomingEpisodes struct {
 // Show is the basic show details, and if it is still running
 type Show struct {
 	Name         string  `json:"name"`
-	ID           float64 `json:"id"`
+	ID           int64   `json:"id"`
 	StillRunning Running `json:"status"`
 }
 
@@ -116,11 +139,6 @@ func httpGet(url string) (string, error) {
 	return string(bodyBytes), nil
 }
 
-/*
-func unmarshallShow(showJSON, gjson.Result) (Show, error) {
-	// TODO build custom unmarshal to take "name", "id", "status" == "Running"
-}*/
-
 // Custom unmarshal to deal with non-RFC 3339 time format
 func unmarshallEpisode(countdownJSON gjson.Result) (Episode, error) {
 	episode := Episode{}
@@ -137,11 +155,11 @@ func unmarshallEpisode(countdownJSON gjson.Result) (Episode, error) {
 func checkForCandidateShows(queryData, query string) (bool, error) {
 	total := gjson.Get(queryData, "total")
 	msg := fmt.Sprintf("error getting total shows for query '%s'", query)
-	if !total.Exists() || !(total.Type.String() == "String") {
+	if !total.Exists() {
 		err := gerrors.Wrapf(gerrors.New("missing 'total'"), msg)
 		return false, err
 	}
-	if !(total.Type.String() == "String") {
+	if !(total.Type.String() == gjsonString) {
 		// For some reason the total field is a string
 		err := gerrors.Wrapf(gerrors.New("incorrect type for 'total'"), msg)
 		return false, err
@@ -163,7 +181,7 @@ func checkForCandidateShows(queryData, query string) (bool, error) {
 		err := gerrors.Wrapf(gerrors.New("no 'tv_shows'"), msg)
 		return false, err
 	}
-	if !(tvShows.Type.String() == "JSON") {
+	if !(tvShows.Type.String() == gjsonJSON) {
 		err := gerrors.Wrapf(gerrors.New("invalid 'tv_shows' type"), msg)
 		return false, err
 	}
@@ -179,7 +197,7 @@ func checkForFutureEpisodes(showData string, ID int64) (bool, error) {
 		err := gerrors.Wrapf(gerrors.New("missing tvShow.countdown"), msg)
 		return false, err
 	}
-	if countdown.Type.String() == "Null" {
+	if countdown.Type.String() == gjsonNull {
 		// no known future episodes
 		return false, nil
 	}
@@ -251,7 +269,7 @@ func parseUpcomingEpisodes(showData string) (UpcomingEpisodes, error) {
 // TODO use runtime package to get function names for errors
 // Get a list of potential shows matching the query
 func getUpcomingShows(query string) (CandidateShows, error) {
-	url := fmt.Sprintf("https://www.episodate.com/api/search?q=%s", url.QueryEscape(query))
+	url := getShowSearchURL(query)
 	resp, err := httpGet(url)
 	if err != nil {
 		msg := "error calling httpGet wrapper in getUpcomingShows"
@@ -274,7 +292,7 @@ func getUpcomingShows(query string) (CandidateShows, error) {
 
 // Get a list of upcoming shows for a particular Episodate query ID
 func getUpcomingEpisodes(queryID int64) (UpcomingEpisodes, error) {
-	url := fmt.Sprintf("https://episodate.com/api/show-details?q=%d", queryID)
+	url := getShowDetailsURL(queryID)
 	resp, err := httpGet(url)
 	if err != nil {
 		msg := "error calling httpGet wrapper"

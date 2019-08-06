@@ -22,7 +22,8 @@ TODO
 const (
 	serverPort = "8080"
 	apiVersion = "v1"
-	prefix     = "/api/" + apiVersion + "/"
+	// prefix for all main API endpoints
+	prefix = "/api/" + apiVersion + "/"
 
 	// endpoints
 	epIDEndpoint     = prefix + "upcomingepisodes"
