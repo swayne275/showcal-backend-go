@@ -21,13 +21,33 @@ import (
 )
 
 // Episode represents an upcoming episode of a TV show
-// Not using struct tags for casing consistency upon json.Marshal
-// Would be nice if this was supported: AirDate time.Time `time:"2006-01-02 15:04:05"`
 type Episode struct {
-	Season  float64   //`json:"season"`
-	Episode float64   //`json:"episode"`
-	Name    string    //`json:"name"`
-	AirDate time.Time // can't put struct tag due to non RFC 3339 format
+	Season  float64 `json:"season"`
+	Episode float64 `json:"episode"`
+	Name    string  `json:"name"`
+	AirDate Time    `json:"air_date"`
+}
+
+// Time is a custom time to properly unmarshal non-RFC 3339 time from API
+type Time struct {
+	time.Time
+}
+
+// UnmarshalJSON reformats API given time as RFC 3339, when Time struct used
+func (t *Time) UnmarshalJSON(data []byte) error {
+	const timeStrFormat = "2006-01-02 15:04:05"
+	var s string
+
+	if err := json.Unmarshal(data, &s); err != nil {
+		return gerrors.Wrapf(err, "Unable to unmarshal time from API")
+	}
+
+	var err error
+	t.Time, err = time.Parse(timeStrFormat, s)
+	if err != nil {
+		return gerrors.Wrapf(err, "unable to reformat time from API")
+	}
+	return nil
 }
 
 // UpcomingEpisodes is the list of Episodes for the show
@@ -88,29 +108,7 @@ func unmarshallEpisode(countdownJSON gjson.Result) (Episode, error) {
 		return Episode{}, err
 	}
 
-	episode.AirDate, err = reformatShowDate(countdownJSON)
-	if err != nil {
-		err = gerrors.Wrapf(err, errMsg)
-		return Episode{}, err
-	}
-
 	return episode, nil
-}
-
-// Properly format time data for go (modify json copy)
-func reformatShowDate(json gjson.Result) (time.Time, error) {
-	const timeStrFormat = "2006-01-02 15:04:05"
-
-	airDate := gjson.Get(json.String(), "air_date")
-	if !airDate.Exists() {
-		msg := fmt.Sprintf("invalid data given to reformatShowData: %s", json.String())
-		err := gerrors.Wrapf(gerrors.New("no date to convert"), msg)
-		return time.Now(), err
-	}
-
-	formattedAirDate, _ := time.Parse(timeStrFormat, airDate.String())
-
-	return formattedAirDate, nil
 }
 
 func checkForCandidateShows(queryData, query string) (bool, error) {
