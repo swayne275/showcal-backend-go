@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/swayne275/gerrors"
@@ -59,7 +60,29 @@ type UpcomingEpisodes struct {
 type Show struct {
 	Name         string  `json:"name"`
 	ID           float64 `json:"id"`
-	StillRunning string  `json:"status"`
+	StillRunning Running `json:"status"`
+}
+
+// Running is used to convert string running status to bool (true if running)
+type Running struct {
+	bool
+}
+
+// MarshalJSON marshals the Running struct into a simple bool
+func (r Running) MarshalJSON() ([]byte, error) {
+	return json.Marshal(r.bool)
+}
+
+// UnmarshalJSON reformats string "show running" status to a bool
+func (r *Running) UnmarshalJSON(data []byte) error {
+	var running string
+
+	if err := json.Unmarshal(data, &running); err != nil {
+		return gerrors.Wrapf(err, "Unable to unmarshal show running status from API")
+	}
+
+	r.bool = (strings.ToLower(running) == "running")
+	return nil
 }
 
 // CandidateShows is the list of candidate Shows for the query
@@ -174,10 +197,7 @@ func parseCandidateShows(queryData string) (CandidateShows, error) {
 
 	allCandidates.ForEach(func(key, value gjson.Result) bool {
 		show := Show{}
-		//show, err = unmarshallShow(value)
 		err = json.Unmarshal([]byte(value.String()), &show)
-		fmt.Println("!!! SW result")
-		fmt.Println(show)
 		if err != nil {
 			msg := "Could not unmarshal show from API"
 			err = gerrors.Wrapf(err, msg)
