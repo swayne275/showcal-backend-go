@@ -2,6 +2,9 @@
 
 // TODO need to get user's timezone down to here for comparison
 
+// TODO continue by unmarshaliing the Show type and finishing some
+// other TODOs
+
 package tvshowdata
 
 import (
@@ -10,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/swayne275/gerrors"
@@ -33,14 +37,14 @@ type UpcomingEpisodes struct {
 
 // Show is the basic show details, and if it is still running
 type Show struct {
-	Name         string
-	ID           float64
-	StillRunning bool
+	Name         string  `json:"name"`
+	ID           float64 `json:"id"`
+	StillRunning string  `json:"status"`
 }
 
 // CandidateShows is the list of candidate Shows for the query
 type CandidateShows struct {
-	Shows []CandidateShows
+	Shows []Show
 }
 
 // Simple HTTP Get that returns the response body as a string ("" if error)
@@ -69,9 +73,10 @@ func httpGet(url string) (string, error) {
 	return string(bodyBytes), nil
 }
 
+/*
 func unmarshallShow(showJSON, gjson.Result) (Show, error) {
 	// TODO build custom unmarshal to take "name", "id", "status" == "Running"
-}
+}*/
 
 // Custom unmarshal to deal with non-RFC 3339 time format
 func unmarshallEpisode(countdownJSON gjson.Result) (Episode, error) {
@@ -110,16 +115,37 @@ func reformatShowDate(json gjson.Result) (time.Time, error) {
 
 func checkForCandidateShows(queryData, query string) (bool, error) {
 	total := gjson.Get(queryData, "total")
-	if !total.Exists() || !(total.Type.String() == "Number") {
-		msg := fmt.Sprintf("api returned invalid number of matching shows for query %s", query)
-		err := gerrors.Wrapf(gerrors.New("missing total"), msg)
+	msg := fmt.Sprintf("error getting total shows for query '%s'", query)
+	if !total.Exists() || !(total.Type.String() == "String") {
+		err := gerrors.Wrapf(gerrors.New("missing 'total'"), msg)
 		return false, err
 	}
-	if total.Float() < 1 {
+	if !(total.Type.String() == "String") {
+		// For some reason the total field is a string
+		err := gerrors.Wrapf(gerrors.New("incorrect type for 'total'"), msg)
+		return false, err
+	}
+
+	numShows, err := strconv.Atoi(total.String())
+	if err != nil {
+		err := gerrors.Wrapf(err, "could not convert 'total' to int")
+		return false, err
+	}
+	if numShows < 1 {
 		// no matching shows
 		return false, nil
 	}
-	// TODO check if tv_shows exists and is array
+
+	// verify matching show data exists
+	tvShows := gjson.Get(queryData, "tv_shows")
+	if !tvShows.Exists() {
+		err := gerrors.Wrapf(gerrors.New("no 'tv_shows'"), msg)
+		return false, err
+	}
+	if !(tvShows.Type.String() == "JSON") {
+		err := gerrors.Wrapf(gerrors.New("invalid 'tv_shows' type"), msg)
+		return false, err
+	}
 
 	return true, nil
 }
@@ -141,14 +167,19 @@ func checkForFutureEpisodes(showData string, ID int64) (bool, error) {
 }
 
 func parseCandidateShows(queryData string) (CandidateShows, error) {
-	candidateShows := CandidateShows{}
 	allCandidates := gjson.Get(queryData, "tv_shows")
 	// TODO previous check if shows exists validates type and presense
 
 	// declare error here to preserve any error from the ForEach loop
+	var err error
+	candidateShows := CandidateShows{}
+
 	allCandidates.ForEach(func(key, value gjson.Result) bool {
-		show = Show{}
-		show, err = unmarshallShow(value)
+		show := Show{}
+		//show, err = unmarshallShow(value)
+		err = json.Unmarshal([]byte(value.String()), &show)
+		fmt.Println("!!! SW result")
+		fmt.Println(show)
 		if err != nil {
 			msg := "Could not unmarshal show from API"
 			err = gerrors.Wrapf(err, msg)
@@ -224,7 +255,7 @@ func getUpcomingShows(query string) (CandidateShows, error) {
 }
 
 // Get a list of upcoming shows for a particular Episodate query ID
-func getUpcomingShows(queryID int64) (UpcomingEpisodes, error) {
+func getUpcomingEpisodes(queryID int64) (UpcomingEpisodes, error) {
 	url := fmt.Sprintf("https://episodate.com/api/show-details?q=%d", queryID)
 	resp, err := httpGet(url)
 	if err != nil {
@@ -249,12 +280,18 @@ func getUpcomingShows(queryID int64) (UpcomingEpisodes, error) {
 
 // GetCandidateShows gets a list of TV shows for the given queryShow
 func GetCandidateShows(queryShow string) (bool, CandidateShows) {
+	showList, err := getUpcomingShows(queryShow)
+	if err != nil {
+		fmt.Println("Error getting the show data:", err)
+		return false, CandidateShows{}
+	}
 
+	return (len(showList.Shows) > 0), showList
 }
 
 // GetShowData gets the air times of upcoming episodes for the given queryID
 func GetShowData(queryID int64) (bool, UpcomingEpisodes) {
-	episodeList, err := getUpcomingShows(queryID)
+	episodeList, err := getUpcomingEpisodes(queryID)
 	if err != nil {
 		fmt.Println("Error getting the show data:", err)
 		return false, UpcomingEpisodes{}

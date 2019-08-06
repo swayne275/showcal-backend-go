@@ -22,7 +22,7 @@ TODO
 const (
 	serverPort = "8080"
 	apiVersion = "v1"
-	prefix     = apiVersion + "/api/"
+	prefix     = "/api/" + apiVersion + "/"
 
 	// endpoints
 	epIDEndpoint     = prefix + "upcomingepisodes"
@@ -105,7 +105,7 @@ func searchUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 	// TODO get candidate episodes, write back
 	haveCandidates, candidateShows := tvshowdata.GetCandidateShows(query.Query)
 	if haveCandidates {
-		output, err = json.Marshal(candidateShows)
+		output, err := json.Marshal(candidateShows)
 		if err != nil {
 			msg := fmt.Sprintf("Unable to process candidate shows in %s", epSearchEndpoint)
 			err = gerrors.Wrapf(err, msg)
