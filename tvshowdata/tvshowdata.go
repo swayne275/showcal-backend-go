@@ -139,19 +139,6 @@ func httpGet(url string) (string, error) {
 	return string(bodyBytes), nil
 }
 
-// Custom unmarshal to deal with non-RFC 3339 time format
-func unmarshalEpisode(countdownJSON gjson.Result) (Episode, error) {
-	episode := Episode{}
-	errMsg := fmt.Sprintf("Could not get episodate countdown: %s", countdownJSON.String())
-	err := json.Unmarshal([]byte(countdownJSON.String()), &episode)
-	if err != nil {
-		err = gerrors.Wrapf(err, errMsg)
-		return Episode{}, err
-	}
-
-	return episode, nil
-}
-
 // Determines if there are any shows matching query from the API
 func checkForCandidateShows(queryData, query string) (bool, error) {
 	total := gjson.Get(queryData, "total")
@@ -249,7 +236,7 @@ func parseUpcomingEpisodes(showData string) (UpcomingEpisodes, error) {
 
 	allEpisodes.ForEach(func(key, value gjson.Result) bool {
 		episode := Episode{}
-		episode, err = unmarshalEpisode(value)
+		err = json.Unmarshal([]byte(value.String()), &episode)
 		if err != nil {
 			msg := "Could not unmarshal episode from API"
 			err = gerrors.Wrapf(err, msg)
