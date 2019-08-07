@@ -30,8 +30,8 @@ import (
 type BasicEvent struct {
 	Summary     string
 	Description string
-	Start       calendar.EventDateTime
-	End         calendar.EventDateTime
+	Start       time.Time
+	End         time.Time
 }
 
 // TODO pass this down from main
@@ -103,27 +103,47 @@ func HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newEvent := calendar.Event{
-		Summary:     "The 100 Final Episode",
+	event := BasicEvent{
+		Summary:     "The 100 Test Episode",
 		Description: "The 100: Season X, Episode Y",
-		Start:       &calendar.EventDateTime{DateTime: time.Date(2019, 8, 8, 9, 24, 0, 0, time.UTC).Format(time.RFC3339)},
-		End:         &calendar.EventDateTime{DateTime: time.Date(2019, 8, 8, 10, 24, 0, 0, time.UTC).Format(time.RFC3339)},
+		Start:       time.Date(2019, 8, 8, 9, 24, 0, 0, time.UTC),
+		End:         time.Date(2019, 8, 8, 10, 24, 0, 0, time.UTC),
 	}
 
-	err = createSingleEvent(&newEvent, calendarService)
+	err = createSingleEvent(event, calendarService)
 	if err != nil {
 		fmt.Fprintln(w, err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func createSingleEvent(event *calendar.Event, service *calendar.Service) error {
+// Converts standard struct into google calendar event format
+func buildCalendarEvent(event BasicEvent) (calendar.Event, error) {
 	if event.Summary == "" {
-		err := gerrors.Wrapf(gerrors.New("No event summary"), "Error in createSingleEvent()")
+		err := gerrors.Wrapf(gerrors.New("No event summary"),
+			"Error in buildCalendarEvent()")
+		return calendar.Event{}, err
+	}
+
+	gcalEvent := calendar.Event{
+		Summary:     event.Summary,
+		Description: event.Description,
+		Start:       &calendar.EventDateTime{DateTime: event.Start.Format(time.RFC3339)},
+		End:         &calendar.EventDateTime{DateTime: event.End.Format(time.RFC3339)},
+	}
+
+	return gcalEvent, nil
+}
+
+// Creates a single event in the user's primary calendar
+func createSingleEvent(event BasicEvent, service *calendar.Service) error {
+	gcalEvent, err := buildCalendarEvent(event)
+	if err != nil {
+		err = gerrors.Wrapf(err, "Error in createSingleEvent()")
 		return err
 	}
 
-	createdEvent, err := service.Events.Insert("primary", event).Do()
+	createdEvent, err := service.Events.Insert("primary", &gcalEvent).Do()
 	if err != nil {
 		gerrors.Wrapf(err, "Error in createSingleEvent()")
 		return err
