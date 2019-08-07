@@ -1,7 +1,7 @@
 // Get relevant data about a TV show using the "episodate" API
 
 // TODO need to get user's timezone down to here for comparison
-
+// TODO use runtime package to get function names for errors
 // TODO figure out how to organize this (utilities, biz logic, etc)
 
 package tvshowdata
@@ -140,7 +140,7 @@ func httpGet(url string) (string, error) {
 }
 
 // Custom unmarshal to deal with non-RFC 3339 time format
-func unmarshallEpisode(countdownJSON gjson.Result) (Episode, error) {
+func unmarshalEpisode(countdownJSON gjson.Result) (Episode, error) {
 	episode := Episode{}
 	errMsg := fmt.Sprintf("Could not get episodate countdown: %s", countdownJSON.String())
 	err := json.Unmarshal([]byte(countdownJSON.String()), &episode)
@@ -152,6 +152,7 @@ func unmarshallEpisode(countdownJSON gjson.Result) (Episode, error) {
 	return episode, nil
 }
 
+// Determines if there are any shows matching query from the API
 func checkForCandidateShows(queryData, query string) (bool, error) {
 	total := gjson.Get(queryData, "total")
 	msg := fmt.Sprintf("error getting total shows for query '%s'", query)
@@ -205,9 +206,9 @@ func checkForFutureEpisodes(showData string, ID int64) (bool, error) {
 	return true, nil
 }
 
+// Unmarshals any shows matching the query to appropriate format
 func parseCandidateShows(queryData string) (CandidateShows, error) {
 	allCandidates := gjson.Get(queryData, "tv_shows")
-	// TODO previous check if shows exists validates type and presense
 
 	// declare error here to preserve any error from the ForEach loop
 	var err error
@@ -232,6 +233,7 @@ func parseCandidateShows(queryData string) (CandidateShows, error) {
 	return candidateShows, err
 }
 
+// Unmarshals any upcoming episodes to the appropriate format
 func parseUpcomingEpisodes(showData string) (UpcomingEpisodes, error) {
 	upcomingEpisodes := UpcomingEpisodes{}
 	allEpisodes := gjson.Get(showData, "tvShow.episodes")
@@ -247,7 +249,7 @@ func parseUpcomingEpisodes(showData string) (UpcomingEpisodes, error) {
 
 	allEpisodes.ForEach(func(key, value gjson.Result) bool {
 		episode := Episode{}
-		episode, err = unmarshallEpisode(value)
+		episode, err = unmarshalEpisode(value)
 		if err != nil {
 			msg := "Could not unmarshal episode from API"
 			err = gerrors.Wrapf(err, msg)
@@ -256,7 +258,6 @@ func parseUpcomingEpisodes(showData string) (UpcomingEpisodes, error) {
 		}
 
 		if episode.AirDate.After(now) {
-			// TODO add to list
 			upcomingEpisodes.Episodes = append(upcomingEpisodes.Episodes, episode)
 		}
 
@@ -266,7 +267,6 @@ func parseUpcomingEpisodes(showData string) (UpcomingEpisodes, error) {
 	return upcomingEpisodes, err
 }
 
-// TODO use runtime package to get function names for errors
 // Get a list of potential shows matching the query
 func getUpcomingShows(query string) (CandidateShows, error) {
 	url := getShowSearchURL(query)
@@ -284,7 +284,9 @@ func getUpcomingShows(query string) (CandidateShows, error) {
 		return CandidateShows{}, err
 	}
 	if !haveCandidates {
-		return CandidateShows{}, nil
+		err := gerrors.Wrapf(gerrors.New("No matching shows"),
+			fmt.Sprintf("No shows matching query %s", query))
+		return CandidateShows{}, err
 	}
 
 	return parseCandidateShows(resp)
@@ -307,8 +309,9 @@ func getUpcomingEpisodes(queryID int64) (UpcomingEpisodes, error) {
 		return UpcomingEpisodes{}, err
 	}
 	if !haveFutureEpisodes {
-		// TODO this isn't an error, unsure how I want to propagate besides empty info?
-		return UpcomingEpisodes{}, nil
+		err := gerrors.Wrapf(gerrors.New("No upcoming episodes"),
+			fmt.Sprintf("No upcoming episodes found for queryID %d", queryID))
+		return UpcomingEpisodes{}, err
 	}
 
 	return parseUpcomingEpisodes(resp)
