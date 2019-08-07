@@ -19,10 +19,23 @@ TODO
 - endpoint for searching by string, returning basic show structs as response
 */
 
-const serverPort = "8080"
+const (
+	serverPort = "8080"
+	apiVersion = "v1"
+	// prefix for all main API endpoints
+	prefix = "/api/" + apiVersion + "/"
+
+	// endpoints
+	epIDEndpoint     = prefix + "upcomingepisodes"
+	epSearchEndpoint = prefix + "episodesearch"
+)
 
 type showID struct {
 	ID int64 `json:"id"`
+}
+
+type showQuery struct {
+	Query string `json:"query"`
 }
 
 func sayHello(w http.ResponseWriter, r *http.Request) {
@@ -35,9 +48,8 @@ func sayHello(w http.ResponseWriter, r *http.Request) {
 
 func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
 	if err != nil {
-		msg := "Unable to get query ID from getUpcomingEpisodes body"
+		msg := fmt.Sprintf("Unable to get json body from %s", epIDEndpoint)
 		err = gerrors.Wrapf(err, msg)
 		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -47,10 +59,10 @@ func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 	var id showID
 	err = json.Unmarshal(body, &id)
 	if err != nil {
-		msg := "Unable to parse show ID from request body"
+		msg := fmt.Sprintf("Unable to parse show id for %s", epIDEndpoint)
 		err = gerrors.Wrapf(err, msg)
 		fmt.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -58,7 +70,7 @@ func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 	if haveEpisodes {
 		output, err := json.Marshal(episodes)
 		if err != nil {
-			msg := "Unable to process upcoming shows"
+			msg := fmt.Sprintf("Unable to process upcoming shows in %s", epIDEndpoint)
 			err = gerrors.Wrapf(err, msg)
 			fmt.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -71,10 +83,50 @@ func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func searchUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		msg := fmt.Sprintf("Unable to get json body from %s", epSearchEndpoint)
+		err = gerrors.Wrapf(err, msg)
+		fmt.Println(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var query showQuery
+	err = json.Unmarshal(body, &query)
+	if err != nil {
+		msg := fmt.Sprintf("Unable to parse show query for %s", epSearchEndpoint)
+		err = gerrors.Wrapf(err, msg)
+		fmt.Println(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// TODO get candidate episodes, write back
+	haveCandidates, candidateShows := tvshowdata.GetCandidateShows(query.Query)
+	if haveCandidates {
+		output, err := json.Marshal(candidateShows)
+		if err != nil {
+			msg := fmt.Sprintf("Unable to process candidate shows in %s", epSearchEndpoint)
+			err = gerrors.Wrapf(err, msg)
+			fmt.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("content-type", "application/json")
+		w.Write(output)
+	} else {
+		http.Error(w, "No shows matching that query", http.StatusNotFound)
+	}
+}
+
 // StartClientAPI starts the web server hosting the client API
 func StartClientAPI() error {
 	http.HandleFunc("/", sayHello)
-	http.HandleFunc("/upcomingepisodes", getUpcomingEpisodes)
+	http.HandleFunc(epIDEndpoint, getUpcomingEpisodes)
+	http.HandleFunc(epSearchEndpoint, searchUpcomingEpisodes)
+
 	if err := http.ListenAndServe(":"+serverPort, nil); err != nil {
 		msg := fmt.Sprintf("Could not start client API server on port %s", serverPort)
 		err = gerrors.Wrapf(err, msg)
