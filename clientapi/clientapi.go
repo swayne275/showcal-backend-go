@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"showcal-backend-go/gcalwrapper"
 	"showcal-backend-go/tvshowdata"
 	"strings"
 
@@ -20,7 +21,6 @@ TODO
 */
 
 const (
-	serverPort = "8080"
 	apiVersion = "v1"
 	// prefix for all main API endpoints
 	prefix = "/api/" + apiVersion + "/"
@@ -122,13 +122,16 @@ func searchUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 }
 
 // StartClientAPI starts the web server hosting the client API
-func StartClientAPI() error {
+func StartClientAPI(port string) error {
 	http.HandleFunc("/", sayHello)
+	http.HandleFunc("/login", gcalwrapper.HandleLogin)
+	http.HandleFunc("/GoogleLogin", gcalwrapper.HandleGoogleLogin)
+	http.HandleFunc("/GoogleCallback", gcalwrapper.HandleGoogleCallback)
 	http.HandleFunc(epIDEndpoint, getUpcomingEpisodes)
 	http.HandleFunc(epSearchEndpoint, searchUpcomingEpisodes)
 
-	if err := http.ListenAndServe(":"+serverPort, nil); err != nil {
-		msg := fmt.Sprintf("Could not start client API server on port %s", serverPort)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		msg := fmt.Sprintf("Could not start client API server on port %s", port)
 		err = gerrors.Wrapf(err, msg)
 		return err
 	}

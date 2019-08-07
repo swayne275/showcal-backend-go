@@ -3,6 +3,8 @@
 // TODO need to get user's timezone down to here for comparison
 // TODO use runtime package to get function names for errors
 // TODO figure out how to organize this (utilities, biz logic, etc)
+// TODO summary {show}: {title}
+// TODO description {show} Season {season}, Episode {episode}
 
 package tvshowdata
 
