@@ -9,6 +9,10 @@ likely be split into two files (in the same package) when I'm closer
 to completing this component
 */
 
+// TODO - store token in memory, have fcn that generates client from
+// token (if err or token blank should say to re-auth)
+// Not sure about best practices handling token stuff
+
 package gcalwrapper
 
 //package main // uncomment to run just this part
@@ -82,8 +86,9 @@ func HandleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 func HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	state := r.FormValue("state")
 	if state != oauthStateString {
-		fmt.Printf("invalid oauth state, expected '%s', got '%s'\n", oauthStateString, state)
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		fmt.Printf("invalid oauth state, expected '%s', got '%s'\n",
+			oauthStateString, state)
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return
 	}
 
