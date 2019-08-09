@@ -169,4 +169,7 @@ func calendarAddHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No episodes provided", http.StatusBadRequest)
 		return
 	}
+
+	// TODO this is a test to just add the first episode to the calendar
+	gcalwrapper.AddEpisodeToCalendar(episodes.Episodes[0])
 }

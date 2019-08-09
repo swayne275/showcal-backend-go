@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"showcal-backend-go/tvshowdata"
 	"time"
 
 	"github.com/swayne275/gerrors"
@@ -54,12 +55,28 @@ var (
 	}
 	// Get a random string for each user login
 	oauthStateString = "random"
+	testToken        oauth2.Token
+	hasRun           bool
 )
 
 const htmlIndex = `<html><body>
 <a href="/GoogleLogin">Log in with Google</a>
 </body></html>
 `
+
+// AddEpisodeToCalendar adds an event to the calendar once user has authed
+func AddEpisodeToCalendar(episode tvshowdata.Episode) {
+	if !hasValidToken() {
+		return
+	}
+
+	service, err := getCalendarService(testToken)
+	if err != nil {
+		fmt.Println(err) // TODO
+	}
+
+	createSingleEvent(formatEpisodeForCalendar(episode), service)
+}
 
 func main() {
 	// home page, where user initiates the process
@@ -69,6 +86,31 @@ func main() {
 	// handle the oauth2 info given back from google
 	http.HandleFunc("/GoogleCallback", HandleGoogleCallback)
 	fmt.Println(http.ListenAndServe(":"+serverPort, nil))
+}
+
+// TODO this only checks if it's been init
+func hasValidToken() bool {
+	if !hasRun {
+		msg := fmt.Sprintf("Go to http://localhost:%s/login to auth with google services",
+			serverPort)
+		fmt.Println(msg)
+		return false
+	}
+
+	return true
+}
+
+// convert a valid OAuth2 token into a calendar service with background context
+func getCalendarService(token oauth2.Token) (*calendar.Service, error) {
+	client := oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(&token))
+
+	calendarService, err := calendar.New(client)
+	if err != nil {
+		fmt.Println(err)
+		return calendarService, err
+	}
+
+	return calendarService, nil
 }
 
 // HandleLogin directs a user to auth their google account with showCal
@@ -100,6 +142,10 @@ func HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO remove test code after building real solution
+	hasRun = true
+	testToken = *token
+
 	client := oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(token))
 
 	calendarService, err := calendar.New(client)
@@ -122,6 +168,24 @@ func HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Creates a single event in the user's primary calendar
+func createSingleEvent(event BasicEvent, service *calendar.Service) error {
+	gcalEvent, err := buildCalendarEvent(event)
+	if err != nil {
+		err = gerrors.Wrapf(err, "Error in createSingleEvent()")
+		return err
+	}
+
+	createdEvent, err := service.Events.Insert("primary", &gcalEvent).Do()
+	if err != nil {
+		gerrors.Wrapf(err, "Error in createSingleEvent()")
+		return err
+	}
+
+	fmt.Println("Calendar event created:", createdEvent.HtmlLink)
+	return nil
+}
+
 // Converts standard struct into google calendar event format
 func buildCalendarEvent(event BasicEvent) (calendar.Event, error) {
 	if event.Summary == "" {
@@ -140,20 +204,20 @@ func buildCalendarEvent(event BasicEvent) (calendar.Event, error) {
 	return gcalEvent, nil
 }
 
-// Creates a single event in the user's primary calendar
-func createSingleEvent(event BasicEvent, service *calendar.Service) error {
-	gcalEvent, err := buildCalendarEvent(event)
-	if err != nil {
-		err = gerrors.Wrapf(err, "Error in createSingleEvent()")
-		return err
+// TODO add show name to episode struct
+// TODO get run time of show
+
+// formatEpisodeForCalendar converts a TV show episode into a calendar event
+func formatEpisodeForCalendar(episode tvshowdata.Episode) BasicEvent {
+	summary := fmt.Sprintf("[show]: %s", episode.Name)
+	description := fmt.Sprintf("[show] \"%s\": Season %d, Episode %d",
+		episode.Name, episode.Season, episode.Episode)
+	event := BasicEvent{
+		Summary:     summary,
+		Description: description,
+		Start:       episode.AirDate.Time,
+		End:         episode.AirDate.Time.Add(time.Hour * time.Duration(1)),
 	}
 
-	createdEvent, err := service.Events.Insert("primary", &gcalEvent).Do()
-	if err != nil {
-		gerrors.Wrapf(err, "Error in createSingleEvent()")
-		return err
-	}
-
-	fmt.Println("Calendar event created:", createdEvent.HtmlLink)
-	return nil
+	return event
 }
