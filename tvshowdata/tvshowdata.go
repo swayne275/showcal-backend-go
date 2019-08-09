@@ -36,23 +36,29 @@ const (
 	upShowDetails = "https://episodate.com/api/show-details?q=%d"
 )
 
-// getShowSearchURL returns the endpoint to search for shows matching query
-func getShowSearchURL(query string) string {
-	htmlQuery := url.QueryEscape(query)
-	return fmt.Sprintf(upShowSearch, htmlQuery)
-}
-
-// getShowDetailsURL returns the endpoint to get show details for id
-func getShowDetailsURL(id int64) string {
-	return fmt.Sprintf(upShowDetails, id)
-}
-
 // Episode represents an upcoming episode of a TV show
 type Episode struct {
 	Season  int64  `json:"season"`
 	Episode int64  `json:"episode"`
 	Name    string `json:"name"`
 	AirDate Time   `json:"air_date"`
+}
+
+// UpcomingEpisodes is the list of Episodes for the show
+type UpcomingEpisodes struct {
+	Episodes []Episode
+}
+
+// Show is the basic show details, and if it is still running
+type Show struct {
+	Name         string  `json:"name"`
+	ID           int64   `json:"id"`
+	StillRunning Running `json:"status"`
+}
+
+// Shows is the list of candidate Shows for the query
+type Shows struct {
+	Shows []Show
 }
 
 // Time is a custom time to properly unmarshal non-RFC 3339 time from API
@@ -76,18 +82,6 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// UpcomingEpisodes is the list of Episodes for the show
-type UpcomingEpisodes struct {
-	Episodes []Episode
-}
-
-// Show is the basic show details, and if it is still running
-type Show struct {
-	Name         string  `json:"name"`
-	ID           int64   `json:"id"`
-	StillRunning Running `json:"status"`
-}
-
 // Running is used to convert string running status to bool (true if running)
 type Running struct {
 	bool
@@ -108,11 +102,6 @@ func (r *Running) UnmarshalJSON(data []byte) error {
 
 	r.bool = (strings.ToLower(running) == "running")
 	return nil
-}
-
-// Shows is the list of candidate Shows for the query
-type Shows struct {
-	Shows []Show
 }
 
 // Simple HTTP Get that returns the response body as a string ("" if error)
@@ -326,4 +315,15 @@ func GetShowData(queryID int64) (bool, UpcomingEpisodes) {
 	}
 
 	return (len(episodeList.Episodes) > 0), episodeList
+}
+
+// getShowSearchURL returns the endpoint to search for shows matching query
+func getShowSearchURL(query string) string {
+	htmlQuery := url.QueryEscape(query)
+	return fmt.Sprintf(upShowSearch, htmlQuery)
+}
+
+// getShowDetailsURL returns the endpoint to get show details for id
+func getShowDetailsURL(id int64) string {
+	return fmt.Sprintf(upShowDetails, id)
 }

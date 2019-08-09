@@ -157,5 +157,12 @@ func calendarAddHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var shows tvshowdata.Shows
+	err = json.Unmarshal(body, &shows)
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "Invalid 'episodes' data", http.StatusBadRequest)
+		return
+	}
 	fmt.Println(body) // TODO debug to compile
 }
