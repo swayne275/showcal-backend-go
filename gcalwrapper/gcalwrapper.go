@@ -9,13 +9,9 @@ likely be split into two files (in the same package) when I'm closer
 to completing this component
 */
 
-// TODO - store token in memory, have fcn that generates client from
-// token (if err or token blank should say to re-auth)
-// Not sure about best practices handling token stuff
+// TODO look up best practices for handling token/client oauth2 stuff
 
 package gcalwrapper
-
-//package main // uncomment to run just this part
 
 import (
 	"fmt"
@@ -78,16 +74,6 @@ func AddEpisodeToCalendar(episode tvshowdata.Episode) {
 	createSingleEvent(formatEpisodeForCalendar(episode), service)
 }
 
-func main() {
-	// home page, where user initiates the process
-	http.HandleFunc("/", HandleLogin)
-	// handle redirect to google services
-	http.HandleFunc("/GoogleLogin", HandleGoogleLogin)
-	// handle the oauth2 info given back from google
-	http.HandleFunc("/GoogleCallback", HandleGoogleCallback)
-	fmt.Println(http.ListenAndServe(":"+serverPort, nil))
-}
-
 // TODO this only checks if it's been init
 func hasValidToken() bool {
 	if !hasRun {
@@ -145,27 +131,6 @@ func HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	// TODO remove test code after building real solution
 	hasRun = true
 	testToken = *token
-
-	client := oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(token))
-
-	calendarService, err := calendar.New(client)
-	if err != nil {
-		fmt.Fprintln(w, err)
-		return
-	}
-
-	event := BasicEvent{
-		Summary:     "The 100 Test Episode",
-		Description: "The 100: Season X, Episode Y",
-		Start:       time.Date(2019, 8, 8, 9, 24, 0, 0, time.UTC),
-		End:         time.Date(2019, 8, 8, 10, 24, 0, 0, time.UTC),
-	}
-
-	err = createSingleEvent(event, calendarService)
-	if err != nil {
-		fmt.Fprintln(w, err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 }
 
 // Creates a single event in the user's primary calendar
