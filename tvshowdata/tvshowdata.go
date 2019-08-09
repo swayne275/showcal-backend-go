@@ -41,7 +41,7 @@ const (
 type Episode struct {
 	Season  int64  `json:"season"`
 	Episode int64  `json:"episode"`
-	Name    string `json:"name"`
+	Title   string `json:"name"`
 	AirDate Time   `json:"air_date"`
 }
 

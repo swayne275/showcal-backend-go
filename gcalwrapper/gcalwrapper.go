@@ -174,9 +174,9 @@ func buildCalendarEvent(event BasicEvent) (calendar.Event, error) {
 
 // formatEpisodeForCalendar converts a TV show episode into a calendar event
 func formatEpisodeForCalendar(episode tvshowdata.Episode) BasicEvent {
-	summary := fmt.Sprintf("[show]: %s", episode.Name)
+	summary := fmt.Sprintf("[show]: %s", episode.Title)
 	description := fmt.Sprintf("[show] \"%s\": Season %d, Episode %d",
-		episode.Name, episode.Season, episode.Episode)
+		episode.Title, episode.Season, episode.Episode)
 	event := BasicEvent{
 		Summary:     summary,
 		Description: description,
