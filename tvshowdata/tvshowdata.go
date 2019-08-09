@@ -5,6 +5,7 @@
 // TODO figure out how to organize this (utilities, biz logic, etc)
 // TODO summary {show}: {title}
 // TODO description {show} Season {season}, Episode {episode}
+// TODO validate Episodes, maybe also clean old ones from here
 
 package tvshowdata
 
@@ -111,6 +112,28 @@ func (r *Running) UnmarshalJSON(data []byte) error {
 
 	r.bool = (strings.ToLower(running) == "running")
 	return nil
+}
+
+// GetCandidateShows gets a list of TV shows for the given queryShow
+func GetCandidateShows(queryShow string) (bool, Shows) {
+	showList, err := getUpcomingShows(queryShow)
+	if err != nil {
+		fmt.Println("Error getting the show data:", err)
+		return false, Shows{}
+	}
+
+	return (len(showList.Shows) > 0), showList
+}
+
+// GetShowData gets the air times of upcoming episodes for the given queryID
+func GetShowData(queryID int64) (bool, Episodes) {
+	episodeList, err := getUpcomingEpisodes(queryID)
+	if err != nil {
+		fmt.Println("Error getting the show data:", err)
+		return false, Episodes{}
+	}
+
+	return (len(episodeList.Episodes) > 0), episodeList
 }
 
 // Simple HTTP Get that returns the response body as a string ("" if error)
@@ -302,28 +325,6 @@ func getUpcomingEpisodes(queryID int64) (Episodes, error) {
 	}
 
 	return parseUpcomingEpisodes(resp)
-}
-
-// GetCandidateShows gets a list of TV shows for the given queryShow
-func GetCandidateShows(queryShow string) (bool, Shows) {
-	showList, err := getUpcomingShows(queryShow)
-	if err != nil {
-		fmt.Println("Error getting the show data:", err)
-		return false, Shows{}
-	}
-
-	return (len(showList.Shows) > 0), showList
-}
-
-// GetShowData gets the air times of upcoming episodes for the given queryID
-func GetShowData(queryID int64) (bool, Episodes) {
-	episodeList, err := getUpcomingEpisodes(queryID)
-	if err != nil {
-		fmt.Println("Error getting the show data:", err)
-		return false, Episodes{}
-	}
-
-	return (len(episodeList.Episodes) > 0), episodeList
 }
 
 // getShowSearchURL returns the endpoint to search for shows matching query
