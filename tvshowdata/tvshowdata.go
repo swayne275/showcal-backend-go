@@ -74,11 +74,20 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 		return gerrors.Wrapf(err, "Unable to unmarshal time from API")
 	}
 
+	// first try parsing as RFC3339 in case it's in the proper format
+	// TODO it doesn't seem that I can just check this without parse
 	var err error
+	t.Time, err = time.Parse(time.RFC3339, s)
+	if err == nil {
+		// the time is already properly formatted
+		return nil
+	}
+
 	t.Time, err = time.Parse(timeStrFormat, s)
 	if err != nil {
-		return gerrors.Wrapf(err, "unable to reformat time from API")
+		return gerrors.Wrapf(err, fmt.Sprintf("unable to reformat time: %s", s))
 	}
+
 	return nil
 }
 

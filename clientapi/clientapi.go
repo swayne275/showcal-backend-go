@@ -164,8 +164,6 @@ func calendarAddHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid 'episodes' data", http.StatusBadRequest)
 		return
 	}
-	fmt.Println("Ep len:", len(episodes.Episodes)) // TODO debug
-	fmt.Printf("%+v\n", episodes)                  // TODO debug
 	if len(episodes.Episodes) == 0 {
 		fmt.Println("No episodes")
 		http.Error(w, "No episodes provided", http.StatusBadRequest)
