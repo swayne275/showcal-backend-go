@@ -3,6 +3,9 @@
 // TODO need to get user's timezone down to here for comparison
 // TODO use runtime package to get function names for errors
 // TODO figure out how to organize this (utilities, biz logic, etc)
+// TODO summary {show}: {title}
+// TODO description {show} Season {season}, Episode {episode}
+// TODO validate Episodes, maybe also clean old ones from here
 
 package tvshowdata
 
@@ -34,23 +37,29 @@ const (
 	upShowDetails = "https://episodate.com/api/show-details?q=%d"
 )
 
-// getShowSearchURL returns the endpoint to search for shows matching query
-func getShowSearchURL(query string) string {
-	htmlQuery := url.QueryEscape(query)
-	return fmt.Sprintf(upShowSearch, htmlQuery)
-}
-
-// getShowDetailsURL returns the endpoint to get show details for id
-func getShowDetailsURL(id int64) string {
-	return fmt.Sprintf(upShowDetails, id)
-}
-
 // Episode represents an upcoming episode of a TV show
 type Episode struct {
 	Season  int64  `json:"season"`
 	Episode int64  `json:"episode"`
-	Name    string `json:"name"`
+	Title   string `json:"name"`
 	AirDate Time   `json:"air_date"`
+}
+
+// Episodes is the list of Episodes for the show
+type Episodes struct {
+	Episodes []Episode
+}
+
+// Show is the basic show details, and if it is still running
+type Show struct {
+	Name         string  `json:"name"`
+	ID           int64   `json:"id"`
+	StillRunning Running `json:"status"`
+}
+
+// Shows is the list of candidate Shows for the query
+type Shows struct {
+	Shows []Show
 }
 
 // Time is a custom time to properly unmarshal non-RFC 3339 time from API
@@ -66,24 +75,21 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 		return gerrors.Wrapf(err, "Unable to unmarshal time from API")
 	}
 
+	// first try parsing as RFC3339 in case it's in the proper format
+	// TODO it doesn't seem that I can just check this without parse
 	var err error
+	t.Time, err = time.Parse(time.RFC3339, s)
+	if err == nil {
+		// the time is already properly formatted
+		return nil
+	}
+
 	t.Time, err = time.Parse(timeStrFormat, s)
 	if err != nil {
-		return gerrors.Wrapf(err, "unable to reformat time from API")
+		return gerrors.Wrapf(err, fmt.Sprintf("unable to reformat time: %s", s))
 	}
+
 	return nil
-}
-
-// UpcomingEpisodes is the list of Episodes for the show
-type UpcomingEpisodes struct {
-	Episodes []Episode
-}
-
-// Show is the basic show details, and if it is still running
-type Show struct {
-	Name         string  `json:"name"`
-	ID           int64   `json:"id"`
-	StillRunning Running `json:"status"`
 }
 
 // Running is used to convert string running status to bool (true if running)
@@ -108,9 +114,26 @@ func (r *Running) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// CandidateShows is the list of candidate Shows for the query
-type CandidateShows struct {
-	Shows []Show
+// GetCandidateShows gets a list of TV shows for the given queryShow
+func GetCandidateShows(queryShow string) (bool, Shows) {
+	showList, err := getUpcomingShows(queryShow)
+	if err != nil {
+		fmt.Println("Error getting the show data:", err)
+		return false, Shows{}
+	}
+
+	return (len(showList.Shows) > 0), showList
+}
+
+// GetShowData gets the air times of upcoming episodes for the given queryID
+func GetShowData(queryID int64) (bool, Episodes) {
+	episodeList, err := getUpcomingEpisodes(queryID)
+	if err != nil {
+		fmt.Println("Error getting the show data:", err)
+		return false, Episodes{}
+	}
+
+	return (len(episodeList.Episodes) > 0), episodeList
 }
 
 // Simple HTTP Get that returns the response body as a string ("" if error)
@@ -194,12 +217,12 @@ func checkForFutureEpisodes(showData string, ID int64) (bool, error) {
 }
 
 // Unmarshals any shows matching the query to appropriate format
-func parseCandidateShows(queryData string) (CandidateShows, error) {
+func parseCandidateShows(queryData string) (Shows, error) {
 	allCandidates := gjson.Get(queryData, "tv_shows")
 
 	// declare error here to preserve any error from the ForEach loop
 	var err error
-	candidateShows := CandidateShows{}
+	candidateShows := Shows{}
 
 	allCandidates.ForEach(func(key, value gjson.Result) bool {
 		show := Show{}
@@ -221,13 +244,13 @@ func parseCandidateShows(queryData string) (CandidateShows, error) {
 }
 
 // Unmarshals any upcoming episodes to the appropriate format
-func parseUpcomingEpisodes(showData string) (UpcomingEpisodes, error) {
-	upcomingEpisodes := UpcomingEpisodes{}
+func parseUpcomingEpisodes(showData string) (Episodes, error) {
+	upcomingEpisodes := Episodes{}
 	allEpisodes := gjson.Get(showData, "tvShow.episodes")
 	if !allEpisodes.Exists() || !allEpisodes.IsArray() {
 		msg := fmt.Sprintf("invalid data given to parseUpcomingEpisodes: %s", showData)
 		err := gerrors.Wrapf(gerrors.New("no episode list in api response"), msg)
-		return UpcomingEpisodes{}, err
+		return Episodes{}, err
 	}
 
 	// declare error here to preserve any error from the ForEach loop
@@ -255,73 +278,62 @@ func parseUpcomingEpisodes(showData string) (UpcomingEpisodes, error) {
 }
 
 // Get a list of potential shows matching the query
-func getUpcomingShows(query string) (CandidateShows, error) {
+func getUpcomingShows(query string) (Shows, error) {
 	url := getShowSearchURL(query)
 	resp, err := httpGet(url)
 	if err != nil {
 		msg := "error calling httpGet wrapper in getUpcomingShows"
 		err = gerrors.Wrapf(err, msg)
-		return CandidateShows{}, err
+		return Shows{}, err
 	}
 
 	haveCandidates, err := checkForCandidateShows(resp, query)
 	if err != nil {
 		msg := "error checking if candidates exist"
 		err = gerrors.Wrapf(err, msg)
-		return CandidateShows{}, err
+		return Shows{}, err
 	}
 	if !haveCandidates {
 		err := gerrors.Wrapf(gerrors.New("No matching shows"),
 			fmt.Sprintf("No shows matching query %s", query))
-		return CandidateShows{}, err
+		return Shows{}, err
 	}
 
 	return parseCandidateShows(resp)
 }
 
 // Get a list of upcoming shows for a particular Episodate query ID
-func getUpcomingEpisodes(queryID int64) (UpcomingEpisodes, error) {
+func getUpcomingEpisodes(queryID int64) (Episodes, error) {
 	url := getShowDetailsURL(queryID)
 	resp, err := httpGet(url)
 	if err != nil {
 		msg := "error calling httpGet wrapper"
 		err = gerrors.Wrapf(err, msg)
-		return UpcomingEpisodes{}, err
+		return Episodes{}, err
 	}
 
 	haveFutureEpisodes, err := checkForFutureEpisodes(resp, queryID)
 	if err != nil {
 		msg := "Error checking if future episodes exist"
 		err = gerrors.Wrapf(err, msg)
-		return UpcomingEpisodes{}, err
+		return Episodes{}, err
 	}
 	if !haveFutureEpisodes {
 		err := gerrors.Wrapf(gerrors.New("No upcoming episodes"),
 			fmt.Sprintf("No upcoming episodes found for queryID %d", queryID))
-		return UpcomingEpisodes{}, err
+		return Episodes{}, err
 	}
 
 	return parseUpcomingEpisodes(resp)
 }
 
-// GetCandidateShows gets a list of TV shows for the given queryShow
-func GetCandidateShows(queryShow string) (bool, CandidateShows) {
-	showList, err := getUpcomingShows(queryShow)
-	if err != nil {
-		fmt.Println("Error getting the show data:", err)
-		return false, CandidateShows{}
-	}
-
-	return (len(showList.Shows) > 0), showList
+// getShowSearchURL returns the endpoint to search for shows matching query
+func getShowSearchURL(query string) string {
+	htmlQuery := url.QueryEscape(query)
+	return fmt.Sprintf(upShowSearch, htmlQuery)
 }
 
-// GetShowData gets the air times of upcoming episodes for the given queryID
-func GetShowData(queryID int64) (bool, UpcomingEpisodes) {
-	episodeList, err := getUpcomingEpisodes(queryID)
-	if err != nil {
-		fmt.Println("Error getting the show data:", err)
-		return false, UpcomingEpisodes{}
-	}
-
-	return (len(episodeList.Episodes) > 0), episodeList
+// getShowDetailsURL returns the endpoint to get show details for id
+func getShowDetailsURL(id int64) string {
+	return fmt.Sprintf(upShowDetails, id)
 }

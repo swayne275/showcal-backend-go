@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"showcal-backend-go/gcalwrapper"
 	"showcal-backend-go/tvshowdata"
 	"strings"
 
@@ -20,14 +21,14 @@ TODO
 */
 
 const (
-	serverPort = "8080"
 	apiVersion = "v1"
 	// prefix for all main API endpoints
 	prefix = "/api/" + apiVersion + "/"
 
 	// endpoints
-	epIDEndpoint     = prefix + "upcomingepisodes"
-	epSearchEndpoint = prefix + "episodesearch"
+	epIDEndpoint        = prefix + "upcomingepisodes"
+	epSearchEndpoint    = prefix + "episodesearch"
+	createEventEndpoint = prefix + "createevent"
 )
 
 type showID struct {
@@ -46,13 +47,23 @@ func sayHello(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(message))
 }
 
-func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
+// Get the body from an http request to this API
+func getRequestBody(r http.Request) ([]byte, error) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		msg := fmt.Sprintf("Unable to get json body from %s", epIDEndpoint)
+		msg := fmt.Sprintf("Error in getRequestBody() for URI %s", r.RequestURI)
 		err = gerrors.Wrapf(err, msg)
+		return body, err
+	}
+
+	return body, nil
+}
+
+func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
+	body, err := getRequestBody(*r)
+	if err != nil {
 		fmt.Println(err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Invalid show ID", http.StatusBadRequest)
 		return
 	}
 
@@ -84,12 +95,10 @@ func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 }
 
 func searchUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := getRequestBody(*r)
 	if err != nil {
-		msg := fmt.Sprintf("Unable to get json body from %s", epSearchEndpoint)
-		err = gerrors.Wrapf(err, msg)
 		fmt.Println(err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Invalid show query", http.StatusBadRequest)
 		return
 	}
 
@@ -122,16 +131,47 @@ func searchUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 }
 
 // StartClientAPI starts the web server hosting the client API
-func StartClientAPI() error {
+func StartClientAPI(port string) error {
 	http.HandleFunc("/", sayHello)
+	http.HandleFunc("/login", gcalwrapper.HandleLogin)
+	http.HandleFunc("/GoogleLogin", gcalwrapper.HandleGoogleLogin)
+	http.HandleFunc("/GoogleCallback", gcalwrapper.HandleGoogleCallback)
 	http.HandleFunc(epIDEndpoint, getUpcomingEpisodes)
 	http.HandleFunc(epSearchEndpoint, searchUpcomingEpisodes)
+	http.HandleFunc(createEventEndpoint, calendarAddHandler)
 
-	if err := http.ListenAndServe(":"+serverPort, nil); err != nil {
-		msg := fmt.Sprintf("Could not start client API server on port %s", serverPort)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		msg := fmt.Sprintf("Could not start client API server on port %s", port)
 		err = gerrors.Wrapf(err, msg)
 		return err
 	}
 
 	return nil
+}
+
+func calendarAddHandler(w http.ResponseWriter, r *http.Request) {
+	body, err := getRequestBody(*r)
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "Invalid episode", http.StatusBadRequest)
+		return
+	}
+
+	var episodes tvshowdata.Episodes
+	err = json.Unmarshal(body, &episodes)
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "Invalid 'episodes' data", http.StatusBadRequest)
+		return
+	}
+	if len(episodes.Episodes) == 0 {
+		fmt.Println("No episodes")
+		http.Error(w, "No episodes provided", http.StatusBadRequest)
+		return
+	}
+
+	// TODO this is a test to just add the first episode to the calendar
+	gcalwrapper.AddEpisodeToCalendar(episodes.Episodes[0])
+	msg := "Created calendar event"
+	w.Write([]byte(msg))
 }
