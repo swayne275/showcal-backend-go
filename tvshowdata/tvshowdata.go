@@ -6,6 +6,7 @@
 // TODO summary {show}: {title}
 // TODO description {show} Season {season}, Episode {episode}
 // TODO validate Episodes, maybe also clean old ones from here
+// TODO propagate runtime, title from Show into Episode
 
 package tvshowdata
 
@@ -52,9 +53,10 @@ type Episodes struct {
 
 // Show is the basic show details, and if it is still running
 type Show struct {
-	Name         string  `json:"name"`
-	ID           int64   `json:"id"`
-	StillRunning Running `json:"status"`
+	Name           string  `json:"name"`
+	ID             int64   `json:"id"`
+	RuntimeMinutes int64   `json:"runtime"`
+	StillRunning   Running `json:"status"`
 }
 
 // Shows is the list of candidate Shows for the query
@@ -219,6 +221,14 @@ func checkForFutureEpisodes(showData string, ID int64) (bool, error) {
 // Unmarshals any shows matching the query to appropriate format
 func parseCandidateShows(queryData string) (Shows, error) {
 	allCandidates := gjson.Get(queryData, "tv_shows")
+	runtimeValue := gjson.Get(queryData, "runtime")
+	var runtime int64
+	if !runtimeValue.Exists() || runtimeValue.Int() == 0 {
+		// default to a 30 minute runtime if not given
+		runtime = 30
+	} else {
+		runtime = runtimeValue.Int()
+	}
 
 	// declare error here to preserve any error from the ForEach loop
 	var err error
@@ -234,6 +244,7 @@ func parseCandidateShows(queryData string) (Shows, error) {
 			return false
 		}
 
+		show.RuntimeMinutes = runtime
 		candidateShows.Shows = append(candidateShows.Shows, show)
 
 		// keep iterating
