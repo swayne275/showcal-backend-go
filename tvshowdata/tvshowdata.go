@@ -110,8 +110,8 @@ func (r *Running) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// CandidateShows is the list of candidate Shows for the query
-type CandidateShows struct {
+// Shows is the list of candidate Shows for the query
+type Shows struct {
 	Shows []Show
 }
 
@@ -196,12 +196,12 @@ func checkForFutureEpisodes(showData string, ID int64) (bool, error) {
 }
 
 // Unmarshals any shows matching the query to appropriate format
-func parseCandidateShows(queryData string) (CandidateShows, error) {
+func parseCandidateShows(queryData string) (Shows, error) {
 	allCandidates := gjson.Get(queryData, "tv_shows")
 
 	// declare error here to preserve any error from the ForEach loop
 	var err error
-	candidateShows := CandidateShows{}
+	candidateShows := Shows{}
 
 	allCandidates.ForEach(func(key, value gjson.Result) bool {
 		show := Show{}
@@ -257,25 +257,25 @@ func parseUpcomingEpisodes(showData string) (UpcomingEpisodes, error) {
 }
 
 // Get a list of potential shows matching the query
-func getUpcomingShows(query string) (CandidateShows, error) {
+func getUpcomingShows(query string) (Shows, error) {
 	url := getShowSearchURL(query)
 	resp, err := httpGet(url)
 	if err != nil {
 		msg := "error calling httpGet wrapper in getUpcomingShows"
 		err = gerrors.Wrapf(err, msg)
-		return CandidateShows{}, err
+		return Shows{}, err
 	}
 
 	haveCandidates, err := checkForCandidateShows(resp, query)
 	if err != nil {
 		msg := "error checking if candidates exist"
 		err = gerrors.Wrapf(err, msg)
-		return CandidateShows{}, err
+		return Shows{}, err
 	}
 	if !haveCandidates {
 		err := gerrors.Wrapf(gerrors.New("No matching shows"),
 			fmt.Sprintf("No shows matching query %s", query))
-		return CandidateShows{}, err
+		return Shows{}, err
 	}
 
 	return parseCandidateShows(resp)
@@ -307,11 +307,11 @@ func getUpcomingEpisodes(queryID int64) (UpcomingEpisodes, error) {
 }
 
 // GetCandidateShows gets a list of TV shows for the given queryShow
-func GetCandidateShows(queryShow string) (bool, CandidateShows) {
+func GetCandidateShows(queryShow string) (bool, Shows) {
 	showList, err := getUpcomingShows(queryShow)
 	if err != nil {
 		fmt.Println("Error getting the show data:", err)
-		return false, CandidateShows{}
+		return false, Shows{}
 	}
 
 	return (len(showList.Shows) > 0), showList

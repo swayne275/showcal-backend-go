@@ -150,5 +150,12 @@ func StartClientAPI(port string) error {
 }
 
 func calendarAddHandler(w http.ResponseWriter, r *http.Request) {
+	body, err := getRequestBody(*r)
+	if err != nil {
+		fmt.Println(err)
+		http.Error(w, "Invalid episode", http.StatusBadRequest)
+		return
+	}
 
+	fmt.Println(body) // TODO debug to compile
 }
