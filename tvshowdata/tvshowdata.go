@@ -44,8 +44,8 @@ type Episode struct {
 	AirDate Time   `json:"air_date"`
 }
 
-// UpcomingEpisodes is the list of Episodes for the show
-type UpcomingEpisodes struct {
+// Episodes is the list of Episodes for the show
+type Episodes struct {
 	Episodes []Episode
 }
 
@@ -212,13 +212,13 @@ func parseCandidateShows(queryData string) (Shows, error) {
 }
 
 // Unmarshals any upcoming episodes to the appropriate format
-func parseUpcomingEpisodes(showData string) (UpcomingEpisodes, error) {
-	upcomingEpisodes := UpcomingEpisodes{}
+func parseUpcomingEpisodes(showData string) (Episodes, error) {
+	upcomingEpisodes := Episodes{}
 	allEpisodes := gjson.Get(showData, "tvShow.episodes")
 	if !allEpisodes.Exists() || !allEpisodes.IsArray() {
 		msg := fmt.Sprintf("invalid data given to parseUpcomingEpisodes: %s", showData)
 		err := gerrors.Wrapf(gerrors.New("no episode list in api response"), msg)
-		return UpcomingEpisodes{}, err
+		return Episodes{}, err
 	}
 
 	// declare error here to preserve any error from the ForEach loop
@@ -271,25 +271,25 @@ func getUpcomingShows(query string) (Shows, error) {
 }
 
 // Get a list of upcoming shows for a particular Episodate query ID
-func getUpcomingEpisodes(queryID int64) (UpcomingEpisodes, error) {
+func getUpcomingEpisodes(queryID int64) (Episodes, error) {
 	url := getShowDetailsURL(queryID)
 	resp, err := httpGet(url)
 	if err != nil {
 		msg := "error calling httpGet wrapper"
 		err = gerrors.Wrapf(err, msg)
-		return UpcomingEpisodes{}, err
+		return Episodes{}, err
 	}
 
 	haveFutureEpisodes, err := checkForFutureEpisodes(resp, queryID)
 	if err != nil {
 		msg := "Error checking if future episodes exist"
 		err = gerrors.Wrapf(err, msg)
-		return UpcomingEpisodes{}, err
+		return Episodes{}, err
 	}
 	if !haveFutureEpisodes {
 		err := gerrors.Wrapf(gerrors.New("No upcoming episodes"),
 			fmt.Sprintf("No upcoming episodes found for queryID %d", queryID))
-		return UpcomingEpisodes{}, err
+		return Episodes{}, err
 	}
 
 	return parseUpcomingEpisodes(resp)
@@ -307,11 +307,11 @@ func GetCandidateShows(queryShow string) (bool, Shows) {
 }
 
 // GetShowData gets the air times of upcoming episodes for the given queryID
-func GetShowData(queryID int64) (bool, UpcomingEpisodes) {
+func GetShowData(queryID int64) (bool, Episodes) {
 	episodeList, err := getUpcomingEpisodes(queryID)
 	if err != nil {
 		fmt.Println("Error getting the show data:", err)
-		return false, UpcomingEpisodes{}
+		return false, Episodes{}
 	}
 
 	return (len(episodeList.Episodes) > 0), episodeList
