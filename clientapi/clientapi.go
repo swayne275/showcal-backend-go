@@ -170,8 +170,7 @@ func calendarAddHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO this is a test to just add the first episode to the calendar
-	gcalwrapper.AddEpisodeToCalendar(episodes.Episodes[0])
+	gcalwrapper.AddEpisodesToCalendar(episodes)
 	msg := "Created calendar event"
 	w.Write([]byte(msg))
 }

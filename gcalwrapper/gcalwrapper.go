@@ -60,8 +60,8 @@ const htmlIndex = `<html><body>
 </body></html>
 `
 
-// AddEpisodeToCalendar adds an event to the calendar once user has authed
-func AddEpisodeToCalendar(episode tvshowdata.Episode) {
+// AddEpisodesToCalendar adds one or more events to the calendar once a user has authed
+func AddEpisodesToCalendar(episodes tvshowdata.Episodes) {
 	if !hasValidToken() {
 		return
 	}
@@ -71,7 +71,9 @@ func AddEpisodeToCalendar(episode tvshowdata.Episode) {
 		fmt.Println(err) // TODO
 	}
 
-	createSingleEvent(formatEpisodeForCalendar(episode), service)
+	for _, episode := range episodes.Episodes {
+		createSingleEvent(formatEpisodeForCalendar(episode), service)
+	}
 }
 
 // TODO this only checks if it's been init
