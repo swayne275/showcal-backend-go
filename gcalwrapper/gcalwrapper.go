@@ -169,19 +169,16 @@ func buildCalendarEvent(event BasicEvent) (calendar.Event, error) {
 	return gcalEvent, nil
 }
 
-// TODO add show name to episode struct
-// TODO get run time of show
-
 // formatEpisodeForCalendar converts a TV show episode into a calendar event
 func formatEpisodeForCalendar(episode tvshowdata.Episode) BasicEvent {
-	summary := fmt.Sprintf("[show]: %s", episode.Title)
-	description := fmt.Sprintf("[show] \"%s\": Season %d, Episode %d",
-		episode.Title, episode.Season, episode.Episode)
+	summary := fmt.Sprintf("%s: \"%s\"", episode.ShowName, episode.Title)
+	description := fmt.Sprintf("%s: \"%s\"\nSeason %d, Episode %d",
+		episode.ShowName, episode.Title, episode.Season, episode.Episode)
 	event := BasicEvent{
 		Summary:     summary,
 		Description: description,
 		Start:       episode.AirDate.Time,
-		End:         episode.AirDate.Time.Add(time.Hour * time.Duration(1)),
+		End:         episode.AirDate.Time.Add(time.Minute * time.Duration(episode.RuntimeMinutes)),
 	}
 
 	return event
