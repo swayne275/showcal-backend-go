@@ -60,7 +60,7 @@ const htmlIndex = `<html><body>
 </body></html>
 `
 
-// AddEpisodesToCalendar adds one or more events to the calendar once a user has authed
+// AddEpisodesToCalendar concurrently adds one more more events to the calendar
 func AddEpisodesToCalendar(episodes tvshowdata.Episodes) {
 	if !hasValidToken() {
 		return
@@ -72,7 +72,8 @@ func AddEpisodesToCalendar(episodes tvshowdata.Episodes) {
 	}
 
 	for _, episode := range episodes.Episodes {
-		createSingleEvent(formatEpisodeForCalendar(episode), service)
+		// TODO error handling from createSingleEvent()
+		go createSingleEvent(formatEpisodeForCalendar(episode), service)
 	}
 }
 
