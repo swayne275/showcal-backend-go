@@ -40,15 +40,17 @@ const (
 
 // Episode represents an upcoming episode of a TV show
 type Episode struct {
-	Season  int64  `json:"season"`
-	Episode int64  `json:"episode"`
-	Title   string `json:"name"`
-	AirDate Time   `json:"air_date"`
+	Season         int64  `json:"season"`
+	Episode        int64  `json:"episode"`
+	Title          string `json:"name"`
+	AirDate        Time   `json:"air_date"`
+	RuntimeMinutes int64  `json:"runtime"`
+	ShowName       string `json:"show_name"`
 }
 
 // Episodes is the list of Episodes for the show
 type Episodes struct {
-	Episodes []Episode
+	Episodes []Episode `json:"episodes"`
 }
 
 // Show is the basic show details, and if it is still running
@@ -61,7 +63,7 @@ type Show struct {
 
 // Shows is the list of candidate Shows for the query
 type Shows struct {
-	Shows []Show
+	Shows []Show `json:"shows"`
 }
 
 // Time is a custom time to properly unmarshal non-RFC 3339 time from API
@@ -116,7 +118,7 @@ func (r *Running) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GetCandidateShows gets a list of TV shows for the given queryShow
+// GetCandidateShows returns a list of TV shows for the given queryShow
 func GetCandidateShows(queryShow string) (bool, Shows) {
 	showList, err := getUpcomingShows(queryShow)
 	if err != nil {
@@ -256,11 +258,21 @@ func parseCandidateShows(queryData string) (Shows, error) {
 
 // Unmarshals any upcoming episodes to the appropriate format
 func parseUpcomingEpisodes(showData string) (Episodes, error) {
-	upcomingEpisodes := Episodes{}
+	errMsg := fmt.Sprintf("invalid data given to parseUpcomingEpisodes: %s", showData)
+
+	showName := gjson.Get(showData, "tvShow.name")
+	runtimeMin := gjson.Get(showData, "tvShow.runtime")
 	allEpisodes := gjson.Get(showData, "tvShow.episodes")
 	if !allEpisodes.Exists() || !allEpisodes.IsArray() {
-		msg := fmt.Sprintf("invalid data given to parseUpcomingEpisodes: %s", showData)
-		err := gerrors.Wrapf(gerrors.New("no episode list in api response"), msg)
+		err := gerrors.Wrapf(gerrors.New("no episode list in api response"), errMsg)
+		return Episodes{}, err
+	}
+	if !showName.Exists() {
+		err := gerrors.Wrapf(gerrors.New("No name' in api response"), errMsg)
+		return Episodes{}, err
+	}
+	if !runtimeMin.Exists() || runtimeMin.Int() == 0 {
+		err := gerrors.Wrapf(gerrors.New("Missing/invalid 'runtime' in API response"), errMsg)
 		return Episodes{}, err
 	}
 
@@ -268,6 +280,7 @@ func parseUpcomingEpisodes(showData string) (Episodes, error) {
 	var err error
 	now := time.Now()
 
+	upcomingEpisodes := Episodes{}
 	allEpisodes.ForEach(func(key, value gjson.Result) bool {
 		episode := Episode{}
 		err = json.Unmarshal([]byte(value.String()), &episode)
@@ -277,6 +290,9 @@ func parseUpcomingEpisodes(showData string) (Episodes, error) {
 			// stop iterating
 			return false
 		}
+
+		episode.RuntimeMinutes = runtimeMin.Int()
+		episode.ShowName = showName.String()
 
 		if episode.AirDate.After(now) {
 			upcomingEpisodes.Episodes = append(upcomingEpisodes.Episodes, episode)
