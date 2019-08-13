@@ -7,6 +7,8 @@
 // TODO description {show} Season {season}, Episode {episode}
 // TODO validate Episodes, maybe also clean old ones from here
 // TODO propagate runtime, title from Show into Episode
+// TODO if status is 'running' but null countdown, have error or somethin
+// TODO get url fcns should error on blank input
 
 package tvshowdata
 
@@ -80,7 +82,6 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 	}
 
 	// first try parsing as RFC3339 in case it's in the proper format
-	// TODO it doesn't seem that I can just check this without parse
 	var err error
 	t.Time, err = time.Parse(time.RFC3339, s)
 	if err == nil {
