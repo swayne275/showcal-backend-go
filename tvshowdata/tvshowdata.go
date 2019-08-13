@@ -7,6 +7,8 @@
 // TODO description {show} Season {season}, Episode {episode}
 // TODO validate Episodes, maybe also clean old ones from here
 // TODO propagate runtime, title from Show into Episode
+// TODO if status is 'running' but null countdown, have error or somethin
+// TODO get url fcns should error on blank input
 
 package tvshowdata
 

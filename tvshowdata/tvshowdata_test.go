@@ -1,3 +1,6 @@
+// TODO figure out how to test network code (mock), get json from API
+// to run against, and how to test fcns calling other fcns
+
 package tvshowdata
 
 import (
