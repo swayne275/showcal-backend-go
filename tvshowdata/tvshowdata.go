@@ -80,7 +80,6 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 	}
 
 	// first try parsing as RFC3339 in case it's in the proper format
-	// TODO it doesn't seem that I can just check this without parse
 	var err error
 	t.Time, err = time.Parse(time.RFC3339, s)
 	if err == nil {
