@@ -16,6 +16,7 @@ func TestUnmarshalJSON(t *testing.T) {
 		{[]byte("bad json"), true},
 		{[]byte("\"not a time\""), true},
 		{[]byte("\"03/09/2019, 02:00:00\""), true},
+		{[]byte{}, true},
 	}
 
 	for _, c := range cases {
@@ -52,6 +53,30 @@ func TestMarshalJSON(t *testing.T) {
 
 		if gotError != c.shouldHaveError {
 			t.Errorf("incorrect output for '%+v': expected '%t', got '%t'",
+				c.input, c.shouldHaveError, gotError)
+		}
+	}
+}
+
+// Tests Running method MarshalJSON()
+func TestRunningUnmarshalJSON(t *testing.T) {
+	var running Running
+	cases := []struct {
+		input           []byte
+		shouldHaveError bool
+	}{
+		{[]byte("\"Running\""), false},
+		{[]byte("\"Ended\""), false},
+		{[]byte("bad json"), true},
+		{[]byte{}, true},
+	}
+
+	for _, c := range cases {
+		err := running.UnmarshalJSON(c.input)
+		gotError := (err != nil)
+
+		if gotError != c.shouldHaveError {
+			t.Errorf("incorrect output for '%s': expected '%t', got '%t'",
 				c.input, c.shouldHaveError, gotError)
 		}
 	}
