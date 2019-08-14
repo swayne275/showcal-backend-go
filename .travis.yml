@@ -1,3 +1,6 @@
 language: go
 go:
-        - 1.x
+        - 1.12.x
+git:
+        depth: 3
+        quiet: true

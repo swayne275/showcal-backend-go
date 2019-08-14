@@ -172,6 +172,8 @@ func buildCalendarEvent(event BasicEvent) (calendar.Event, error) {
 	return gcalEvent, nil
 }
 
+// todo need to check input data is valid somewhere
+// todo check that runtime isn't greater than 3 hours
 // formatEpisodeForCalendar converts a TV show episode into a calendar event
 func formatEpisodeForCalendar(episode tvshowdata.Episode) BasicEvent {
 	summary := fmt.Sprintf("%s: \"%s\"", episode.ShowName, episode.Title)
