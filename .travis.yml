@@ -15,4 +15,5 @@ before_script:
 
 script:
         #- golangci-lint run # run code checks/linters in parallel
+        - make deps
         - make test # run tests with race detector enabled

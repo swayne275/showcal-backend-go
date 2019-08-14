@@ -12,7 +12,7 @@ target: ;
 
 all: test build
 build:
-	$(GOBUILD) -o $(BINARY_NAME) -v ./...
+	$(GOBUILD) -o $(BINARY_NAME) -v
 test:
 	$(GOTEST) -v -race ./...
 clean:
@@ -29,9 +29,9 @@ deps:
 	$(GOGET) "golang.org/x/oauth2"
 	$(GOGET) "golang.org/x/oauth2/google"
 	$(GOGET) "google.golang.org/api/calendar/v3"
-	$(GOINSTALL) "github.com/swayne275/showcal-backend-go/clientapi
-	$(GOINSTALL) "github.com/swayne275/showcal-backend-go/gcalwrapper
-	$(GOINSTALL) "github.com/swayne275/showcal-backend-go/tvshowdata
+	$(GOINSTALL) "github.com/swayne275/showcal-backend-go/clientapi"
+	$(GOINSTALL) "github.com/swayne275/showcal-backend-go/gcalwrapper"
+	$(GOINSTALL) "github.com/swayne275/showcal-backend-go/tvshowdata"
 
 # Cross compilation (not needed yet)
 build-linux:
