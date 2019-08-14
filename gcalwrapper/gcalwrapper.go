@@ -25,6 +25,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/calendar/v3"
+	"google.golang.org/api/option"
 )
 
 // BasicEvent is a simple calendar event with name, description, start, end
@@ -61,6 +62,7 @@ const htmlIndex = `<html><body>
 `
 
 // AddEpisodesToCalendar concurrently adds one more more events to the calendar
+// TODO validate all dates are in the future
 func AddEpisodesToCalendar(episodes tvshowdata.Episodes) {
 	if !hasValidToken() {
 		return
@@ -98,16 +100,18 @@ func hasValidToken() bool {
 }
 
 // convert a valid OAuth2 token into a calendar service with background context
+// only one of *Service, error will be non-nil
 func getCalendarService(token oauth2.Token) (*calendar.Service, error) {
 	client := oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(&token))
+	ctx := context.Background()
 
-	calendarService, err := calendar.New(client)
+	service, err := calendar.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
 		fmt.Println(err)
-		return calendarService, err
+		return nil, err
 	}
 
-	return calendarService, nil
+	return service, nil
 }
 
 // HandleLogin directs a user to auth their google account with showCal

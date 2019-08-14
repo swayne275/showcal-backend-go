@@ -29,6 +29,7 @@ deps:
 	$(GOGET) "golang.org/x/oauth2"
 	$(GOGET) "golang.org/x/oauth2/google"
 	$(GOGET) "google.golang.org/api/calendar/v3"
+	$(GOGET) "google.golang.org/api/option"
 
 # Cross compilation (not needed yet)
 build-linux:
