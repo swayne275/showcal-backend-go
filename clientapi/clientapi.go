@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"showcal-backend-go/gcalwrapper"
-	"showcal-backend-go/tvshowdata"
 	"strings"
 
 	"github.com/swayne275/gerrors"
+	"github.com/swayne275/showcal-backend-go/gcalwrapper"
+	"github.com/swayne275/showcal-backend-go/tvshowdata"
 )
 
 /*
@@ -44,7 +44,11 @@ func sayHello(w http.ResponseWriter, r *http.Request) {
 	message = strings.TrimPrefix(message, "/")
 	message = "Hello " + message
 
-	w.Write([]byte(message))
+	_, err := w.Write([]byte(message))
+	if err != nil {
+		// TODO handle errors better
+		fmt.Println("sayHello()", err)
+	}
 }
 
 // Get the body from an http request to this API
@@ -87,8 +91,13 @@ func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
 		w.Header().Set("content-type", "application/json")
-		w.Write(output)
+		_, err = w.Write(output)
+		if err != nil {
+			// TODO handle errors better
+			fmt.Println("getUpcomingEpisodes()", err)
+		}
 	} else {
 		http.Error(w, "No upcoming episodes", http.StatusNotFound)
 	}
@@ -123,8 +132,13 @@ func searchUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
 		w.Header().Set("content-type", "application/json")
-		w.Write(output)
+		_, err = w.Write(output)
+		if err != nil {
+			// TODO handle errors better
+			fmt.Println("searchUpcomingEpisodes()", err)
+		}
 	} else {
 		http.Error(w, "No shows matching that query", http.StatusNotFound)
 	}
@@ -172,5 +186,9 @@ func calendarAddHandler(w http.ResponseWriter, r *http.Request) {
 
 	gcalwrapper.AddEpisodesToCalendar(episodes)
 	msg := "Created calendar event"
-	w.Write([]byte(msg))
+	_, err = w.Write([]byte(msg))
+	if err != nil {
+		// TODO handle errors better
+		fmt.Println("calendarAddHandler():", err)
+	}
 }

@@ -1,9 +1,10 @@
 package gcalwrapper
 
 import (
-	"showcal-backend-go/tvshowdata"
 	"testing"
 	"time"
+
+	"github.com/swayne275/showcal-backend-go/tvshowdata"
 )
 
 func TestFormatEpisodeForCalendar(t *testing.T) {
@@ -13,10 +14,12 @@ func TestFormatEpisodeForCalendar(t *testing.T) {
 		expectedOut BasicEvent
 	}{
 		{tvshowdata.Episode{
-			Season:         1,
-			Episode:        1,
-			Title:          "B",
-			AirDate:        tvshowdata.Time{time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)},
+			Season:  1,
+			Episode: 1,
+			Title:   "B",
+			AirDate: tvshowdata.Time{
+				Time: time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC),
+			},
 			RuntimeMinutes: 30,
 			ShowName:       "A",
 		}, BasicEvent{
