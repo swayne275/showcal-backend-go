@@ -15,4 +15,4 @@ before_script:
 
 script:
         - golangci-lint run # run code checks/linters in parallel
-        - go test -v -race ./... # run tests with race detector enabled
+        - make test # run tests with race detector enabled
