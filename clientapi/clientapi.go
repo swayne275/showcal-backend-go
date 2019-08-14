@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"showcal-backend-go/gcalwrapper"
+	"showcal-backend-go/tvshowdata"
 	"strings"
 
 	"github.com/swayne275/gerrors"
-	"github.com/swayne275/showcal-backend-go/gcalwrapper"
-	"github.com/swayne275/showcal-backend-go/tvshowdata"
 )
 
 /*
