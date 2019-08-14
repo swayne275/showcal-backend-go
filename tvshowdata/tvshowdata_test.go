@@ -76,11 +76,57 @@ func TestRunningUnmarshalJSON(t *testing.T) {
 
 	for _, c := range cases {
 		err := running.UnmarshalJSON(c.input)
-		gotError := (err != nil)
+		haveError := (err != nil)
 
-		if gotError != c.shouldHaveError {
-			t.Errorf("incorrect output for '%s': expected '%t', got '%t'",
-				c.input, c.shouldHaveError, gotError)
+		if haveError != c.shouldHaveError {
+			t.Errorf("incorrect error status for '%s': expected '%t', got '%t'",
+				c.input, c.shouldHaveError, haveError)
+		}
+	}
+}
+
+func TestGetShowURLs(t *testing.T) {
+	// test getShowSearchURL
+	searchCases := []struct {
+		in              string
+		expectedOut     string
+		expectedHaveErr bool
+	}{
+		{"American Dad", "https://www.episodate.com/api/search?q=American+Dad", false},
+		{"Friends", "https://www.episodate.com/api/search?q=Friends", false},
+		{"", "", true},
+	}
+
+	for _, c := range searchCases {
+		out, err := getShowSearchURL(c.in)
+		haveErr := (err != nil)
+
+		if out != c.expectedOut {
+			t.Errorf("incorrect output for '%s': expected '%s', got '%s'",
+				c.in, c.expectedOut, out)
+		}
+
+		if haveErr != c.expectedHaveErr {
+			t.Errorf("incorrect error status for '%s': expected '%t', got '%t'",
+				c.in, c.expectedHaveErr, haveErr)
+		}
+	}
+
+	// test getShowDetailsURL()
+	detailsCases := []struct {
+		in          int64
+		expectedOut string
+	}{
+		{0, "https://episodate.com/api/show-details?q=0"},
+		{2550, "https://episodate.com/api/show-details?q=2550"},
+	}
+
+	for _, c := range detailsCases {
+		out := getShowDetailsURL(c.in)
+
+		if out != c.expectedOut {
+			t.Errorf("incorrect output for '%d': expected '%s', got '%s'",
+				c.in, c.expectedOut, out)
 		}
 	}
 }
