@@ -8,7 +8,7 @@ import (
 )
 
 // Tests Time method UnmarshalJSON()
-func TestUnmarshalJSON(t *testing.T) {
+func TestTimeUnmarshalJSON(t *testing.T) {
 	var time Time
 	cases := []struct {
 		input           []byte
@@ -34,7 +34,7 @@ func TestUnmarshalJSON(t *testing.T) {
 }
 
 // Tests Running method MarshalJSON()
-func TestMarshalJSON(t *testing.T) {
+func TestRunningMarshalJSON(t *testing.T) {
 	cases := []struct {
 		input             Running
 		expectedOutputStr string

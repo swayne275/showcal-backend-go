@@ -307,7 +307,12 @@ func parseUpcomingEpisodes(showData string) (Episodes, error) {
 
 // Get a list of potential shows matching the query
 func getUpcomingShows(query string) (Shows, error) {
-	url := getShowSearchURL(query)
+	url, err := getShowSearchURL(query)
+	if err != nil {
+		err := gerrors.Wrap(err, "error in getUpcomingShows()")
+		return Shows{}, err
+	}
+
 	resp, err := httpGet(url)
 	if err != nil {
 		msg := "error calling httpGet wrapper in getUpcomingShows"
@@ -356,9 +361,15 @@ func getUpcomingEpisodes(queryID int64) (Episodes, error) {
 }
 
 // getShowSearchURL returns the endpoint to search for shows matching query
-func getShowSearchURL(query string) string {
+func getShowSearchURL(query string) (string, error) {
+	if query == "" {
+		err := gerrors.Wrapf(gerrors.New("Empty 'query' given"),
+			"Invalid data passed to getShowSearchURL()")
+		return "", err
+	}
+
 	htmlQuery := url.QueryEscape(query)
-	return fmt.Sprintf(upShowSearch, htmlQuery)
+	return fmt.Sprintf(upShowSearch, htmlQuery), nil
 }
 
 // getShowDetailsURL returns the endpoint to get show details for id
