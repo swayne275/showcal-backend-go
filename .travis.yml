@@ -2,5 +2,17 @@ language: go
 go:
         - 1.12.x
 git:
-        depth: 3
+        depth: 1
         quiet: true
+
+# don't email me build results at this stage
+notifications:
+        email: false
+
+# Vendor golangci-lint
+before_script:
+        - go install github.com/golangci/golangci-lint/cmd/golangci-lint
+
+script:
+        - golangci-lint run # run code checks/linters in parallel
+        - go test -v -race ./... # run tests with race detector enabled
