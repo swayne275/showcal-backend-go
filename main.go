@@ -14,5 +14,8 @@ func main() {
 	//const queryID = 2550 // American Dad
 	//const queryID = 3564 // Friends
 
-	webserver.StartClientAPI(ServerPort)
+	err := webserver.StartClientAPI(ServerPort)
+	if err != nil {
+		panic(err)
+	}
 }

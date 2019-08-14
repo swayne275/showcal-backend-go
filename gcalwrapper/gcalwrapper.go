@@ -71,9 +71,17 @@ func AddEpisodesToCalendar(episodes tvshowdata.Episodes) {
 		fmt.Println(err) // TODO
 	}
 
-	for _, episode := range episodes.Episodes {
+	for idx := range episodes.Episodes {
 		// TODO error handling from createSingleEvent()
-		go createSingleEvent(formatEpisodeForCalendar(episode), service)
+		// TODO verify: can't pass episode since it changes each loop
+		go func(ep tvshowdata.Episode) {
+			err := createSingleEvent(formatEpisodeForCalendar(ep), service)
+			if err != nil {
+				// TODO better error handling
+				fmt.Println("AddEpsidoesToCalendar err:", err, "episode:",
+					ep)
+			}
+		}(episodes.Episodes[idx])
 	}
 }
 
@@ -124,7 +132,7 @@ func HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := r.FormValue("code")
-	token, err := googleOauthConfig.Exchange(oauth2.NoContext, code)
+	token, err := googleOauthConfig.Exchange(context.Background(), code)
 	if err != nil {
 		fmt.Printf("oauthConf.Exchange() failed with '%s'\n", err)
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
@@ -146,7 +154,7 @@ func createSingleEvent(event BasicEvent, service *calendar.Service) error {
 
 	createdEvent, err := service.Events.Insert("primary", &gcalEvent).Do()
 	if err != nil {
-		gerrors.Wrapf(err, "Error in createSingleEvent()")
+		err = gerrors.Wrapf(err, "Error in createSingleEvent()")
 		return err
 	}
 
