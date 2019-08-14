@@ -4,7 +4,6 @@ GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
-GOINSTALL=$(GOCMD) install
 BINARY_NAME=showcal-backend
 BINARY_UNIX=$(BINARY_NAME)_unix
 
@@ -29,9 +28,6 @@ deps:
 	$(GOGET) "golang.org/x/oauth2"
 	$(GOGET) "golang.org/x/oauth2/google"
 	$(GOGET) "google.golang.org/api/calendar/v3"
-	$(GOINSTALL) "github.com/swayne275/showcal-backend-go/clientapi
-	$(GOINSTALL) "github.com/swayne275/showcal-backend-go/gcalwrapper
-	$(GOINSTALL) "github.com/swayne275/showcal-backend-go/tvshowdata
 
 # Cross compilation (not needed yet)
 build-linux:
