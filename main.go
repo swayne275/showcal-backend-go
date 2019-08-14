@@ -1,7 +1,7 @@
 package main
 
 import (
-	webserver "showcal-backend-go/clientapi"
+	webserver "github.com/swayne275/showcal-backend-go/clientapi"
 )
 
 const (
