@@ -32,10 +32,6 @@ const (
 	createEventEndpoint = prefix + "createevent"
 )
 
-type showID struct {
-	ID int64 `json:"id"`
-}
-
 func sayHello(w http.ResponseWriter, r *http.Request) {
 	setupCors(&w)
 	if (*r).Method == "OPTIONS" {
