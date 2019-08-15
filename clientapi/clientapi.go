@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/swayne275/gerrors"
@@ -69,9 +69,7 @@ func getRequestBody(r http.Request) ([]byte, error) {
 func getQueryParam(key string, r *http.Request) (string, error) {
 	keys, ok := r.URL.Query()[key]
 	if !ok || len(keys[0]) < 1 {
-		// TODO better error handling, functionize this, also do with show ID
-		log.Println("Url Param 'query' is missing")
-		err := gerrors.New(fmt.Sprintf("Missing key '%s'", key))
+		err := gerrors.New(fmt.Sprintf("URL param '%s' is missing", key))
 		return "", err
 	}
 
@@ -79,24 +77,26 @@ func getQueryParam(key string, r *http.Request) (string, error) {
 }
 
 func handleGetEpisodes(w http.ResponseWriter, r *http.Request) {
-	body, err := getRequestBody(*r)
-	if err != nil {
-		fmt.Println(err)
-		http.Error(w, "Invalid show ID", http.StatusBadRequest)
+	setupCors(&w)
+	if (*r).Method == "OPTIONS" {
 		return
 	}
 
-	var id showID
-	err = json.Unmarshal(body, &id)
+	idStr, err := getQueryParam("id", r)
 	if err != nil {
-		msg := fmt.Sprintf("Unable to parse show id for %s", getEpisodesEndpoint)
-		err = gerrors.Wrapf(err, msg)
-		fmt.Println(err)
+		fmt.Println("error in handleGetEpisodes()", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	haveEpisodes, episodes := tvshowdata.GetShowData(id.ID)
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		fmt.Println("error in handleGetEpisodes()", err)
+		http.Error(w, "Invalid value for param 'id'", http.StatusBadRequest)
+		return
+	}
+
+	haveEpisodes, episodes := tvshowdata.GetShowData(id)
 	if haveEpisodes {
 		output, err := json.Marshal(episodes)
 		if err != nil {
@@ -111,7 +111,7 @@ func handleGetEpisodes(w http.ResponseWriter, r *http.Request) {
 		_, err = w.Write(output)
 		if err != nil {
 			// TODO handle errors better
-			fmt.Println("getUpcomingEpisodes()", err)
+			fmt.Println("handleGetEpisodes()", err)
 		}
 	} else {
 		http.Error(w, "No upcoming episodes", http.StatusNotFound)
@@ -126,7 +126,8 @@ func handleShowSearch(w http.ResponseWriter, r *http.Request) {
 
 	query, err := getQueryParam("query", r)
 	if err != nil {
-		fmt.Println("Error in searchUpcomingEpisodes():", err)
+		fmt.Println("Error in handleShowSearch():", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
