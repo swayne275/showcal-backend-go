@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 
@@ -35,11 +36,12 @@ type showID struct {
 	ID int64 `json:"id"`
 }
 
-type showQuery struct {
-	Query string `json:"query"`
-}
-
 func sayHello(w http.ResponseWriter, r *http.Request) {
+	setupCors(&w)
+	if (*r).Method == "OPTIONS" {
+		return
+	}
+
 	message := r.URL.Path
 	message = strings.TrimPrefix(message, "/")
 	message = "Hello " + message
@@ -61,6 +63,19 @@ func getRequestBody(r http.Request) ([]byte, error) {
 	}
 
 	return body, nil
+}
+
+// Return the requested key, or error if not present/invalid
+func getQueryParam(key string, r *http.Request) (string, error) {
+	keys, ok := r.URL.Query()[key]
+	if !ok || len(keys[0]) < 1 {
+		// TODO better error handling, functionize this, also do with show ID
+		log.Println("Url Param 'query' is missing")
+		err := gerrors.New(fmt.Sprintf("Missing key '%s'", key))
+		return "", err
+	}
+
+	return keys[0], nil
 }
 
 func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
@@ -104,25 +119,19 @@ func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 }
 
 func searchUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
-	body, err := getRequestBody(*r)
-	if err != nil {
-		fmt.Println(err)
-		http.Error(w, "Invalid show query", http.StatusBadRequest)
+	setupCors(&w)
+	if (*r).Method == "OPTIONS" {
 		return
 	}
 
-	var query showQuery
-	err = json.Unmarshal(body, &query)
+	query, err := getQueryParam("query", r)
 	if err != nil {
-		msg := fmt.Sprintf("Unable to parse show query for %s", epSearchEndpoint)
-		err = gerrors.Wrapf(err, msg)
-		fmt.Println(err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		fmt.Println("Error in searchUpcomingEpisodes():", err)
 		return
 	}
 
 	// TODO get candidate episodes, write back
-	haveCandidates, candidateShows := tvshowdata.GetCandidateShows(query.Query)
+	haveCandidates, candidateShows := tvshowdata.GetCandidateShows(query)
 	if haveCandidates {
 		output, err := json.Marshal(candidateShows)
 		if err != nil {
@@ -191,4 +200,11 @@ func calendarAddHandler(w http.ResponseWriter, r *http.Request) {
 		// TODO handle errors better
 		fmt.Println("calendarAddHandler():", err)
 	}
+}
+
+func setupCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+	(*w).Header().Set("Access-Control-Allow-Headers",
+		"Accept, Content-Type, Content-Length, Accept-Encoding")
 }
