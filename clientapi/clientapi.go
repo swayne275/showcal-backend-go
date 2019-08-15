@@ -27,8 +27,8 @@ const (
 	prefix = "/api/" + apiVersion + "/"
 
 	// endpoints
-	epIDEndpoint        = prefix + "upcomingepisodes"
-	epSearchEndpoint    = prefix + "episodesearch"
+	getEpisodesEndpoint = prefix + "getepisodes"
+	showSearchEndpoint  = prefix + "showsearch"
 	createEventEndpoint = prefix + "createevent"
 )
 
@@ -78,7 +78,7 @@ func getQueryParam(key string, r *http.Request) (string, error) {
 	return keys[0], nil
 }
 
-func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
+func handleGetEpisodes(w http.ResponseWriter, r *http.Request) {
 	body, err := getRequestBody(*r)
 	if err != nil {
 		fmt.Println(err)
@@ -89,7 +89,7 @@ func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 	var id showID
 	err = json.Unmarshal(body, &id)
 	if err != nil {
-		msg := fmt.Sprintf("Unable to parse show id for %s", epIDEndpoint)
+		msg := fmt.Sprintf("Unable to parse show id for %s", getEpisodesEndpoint)
 		err = gerrors.Wrapf(err, msg)
 		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -100,7 +100,7 @@ func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 	if haveEpisodes {
 		output, err := json.Marshal(episodes)
 		if err != nil {
-			msg := fmt.Sprintf("Unable to process upcoming shows in %s", epIDEndpoint)
+			msg := fmt.Sprintf("Unable to process upcoming shows in %s", getEpisodesEndpoint)
 			err = gerrors.Wrapf(err, msg)
 			fmt.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -118,7 +118,7 @@ func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func searchUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
+func handleShowSearch(w http.ResponseWriter, r *http.Request) {
 	setupCors(&w)
 	if (*r).Method == "OPTIONS" {
 		return
@@ -135,7 +135,7 @@ func searchUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 	if haveCandidates {
 		output, err := json.Marshal(candidateShows)
 		if err != nil {
-			msg := fmt.Sprintf("Unable to process candidate shows in %s", epSearchEndpoint)
+			msg := fmt.Sprintf("Unable to process candidate shows in %s", showSearchEndpoint)
 			err = gerrors.Wrapf(err, msg)
 			fmt.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -159,8 +159,8 @@ func StartClientAPI(port string) error {
 	http.HandleFunc("/login", gcalwrapper.HandleLogin)
 	http.HandleFunc("/GoogleLogin", gcalwrapper.HandleGoogleLogin)
 	http.HandleFunc("/GoogleCallback", gcalwrapper.HandleGoogleCallback)
-	http.HandleFunc(epIDEndpoint, getUpcomingEpisodes)
-	http.HandleFunc(epSearchEndpoint, searchUpcomingEpisodes)
+	http.HandleFunc(getEpisodesEndpoint, handleGetEpisodes)
+	http.HandleFunc(showSearchEndpoint, handleShowSearch)
 	http.HandleFunc(createEventEndpoint, calendarAddHandler)
 
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
