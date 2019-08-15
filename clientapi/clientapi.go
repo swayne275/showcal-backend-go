@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/swayne275/gerrors"
@@ -26,20 +27,17 @@ const (
 	prefix = "/api/" + apiVersion + "/"
 
 	// endpoints
-	epIDEndpoint        = prefix + "upcomingepisodes"
-	epSearchEndpoint    = prefix + "episodesearch"
+	getEpisodesEndpoint = prefix + "getepisodes"
+	showSearchEndpoint  = prefix + "showsearch"
 	createEventEndpoint = prefix + "createevent"
 )
 
-type showID struct {
-	ID int64 `json:"id"`
-}
-
-type showQuery struct {
-	Query string `json:"query"`
-}
-
 func sayHello(w http.ResponseWriter, r *http.Request) {
+	setupCors(&w)
+	if (*r).Method == "OPTIONS" {
+		return
+	}
+
 	message := r.URL.Path
 	message = strings.TrimPrefix(message, "/")
 	message = "Hello " + message
@@ -63,29 +61,42 @@ func getRequestBody(r http.Request) ([]byte, error) {
 	return body, nil
 }
 
-func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
-	body, err := getRequestBody(*r)
-	if err != nil {
-		fmt.Println(err)
-		http.Error(w, "Invalid show ID", http.StatusBadRequest)
+// Return the requested key, or error if not present/invalid
+func getQueryParam(key string, r *http.Request) (string, error) {
+	keys, ok := r.URL.Query()[key]
+	if !ok || len(keys[0]) < 1 {
+		err := gerrors.New(fmt.Sprintf("URL param '%s' is missing", key))
+		return "", err
+	}
+
+	return keys[0], nil
+}
+
+func handleGetEpisodes(w http.ResponseWriter, r *http.Request) {
+	setupCors(&w)
+	if (*r).Method == "OPTIONS" {
 		return
 	}
 
-	var id showID
-	err = json.Unmarshal(body, &id)
+	idStr, err := getQueryParam("id", r)
 	if err != nil {
-		msg := fmt.Sprintf("Unable to parse show id for %s", epIDEndpoint)
-		err = gerrors.Wrapf(err, msg)
-		fmt.Println(err)
+		fmt.Println("error in handleGetEpisodes()", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	haveEpisodes, episodes := tvshowdata.GetShowData(id.ID)
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		fmt.Println("error in handleGetEpisodes()", err)
+		http.Error(w, "Invalid value for param 'id'", http.StatusBadRequest)
+		return
+	}
+
+	haveEpisodes, episodes := tvshowdata.GetShowData(id)
 	if haveEpisodes {
 		output, err := json.Marshal(episodes)
 		if err != nil {
-			msg := fmt.Sprintf("Unable to process upcoming shows in %s", epIDEndpoint)
+			msg := fmt.Sprintf("Unable to process upcoming shows in %s", getEpisodesEndpoint)
 			err = gerrors.Wrapf(err, msg)
 			fmt.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -96,37 +107,32 @@ func getUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
 		_, err = w.Write(output)
 		if err != nil {
 			// TODO handle errors better
-			fmt.Println("getUpcomingEpisodes()", err)
+			fmt.Println("handleGetEpisodes()", err)
 		}
 	} else {
 		http.Error(w, "No upcoming episodes", http.StatusNotFound)
 	}
 }
 
-func searchUpcomingEpisodes(w http.ResponseWriter, r *http.Request) {
-	body, err := getRequestBody(*r)
-	if err != nil {
-		fmt.Println(err)
-		http.Error(w, "Invalid show query", http.StatusBadRequest)
+func handleShowSearch(w http.ResponseWriter, r *http.Request) {
+	setupCors(&w)
+	if (*r).Method == "OPTIONS" {
 		return
 	}
 
-	var query showQuery
-	err = json.Unmarshal(body, &query)
+	query, err := getQueryParam("query", r)
 	if err != nil {
-		msg := fmt.Sprintf("Unable to parse show query for %s", epSearchEndpoint)
-		err = gerrors.Wrapf(err, msg)
-		fmt.Println(err)
+		fmt.Println("Error in handleShowSearch():", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// TODO get candidate episodes, write back
-	haveCandidates, candidateShows := tvshowdata.GetCandidateShows(query.Query)
+	haveCandidates, candidateShows := tvshowdata.GetCandidateShows(query)
 	if haveCandidates {
 		output, err := json.Marshal(candidateShows)
 		if err != nil {
-			msg := fmt.Sprintf("Unable to process candidate shows in %s", epSearchEndpoint)
+			msg := fmt.Sprintf("Unable to process candidate shows in %s", showSearchEndpoint)
 			err = gerrors.Wrapf(err, msg)
 			fmt.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -150,8 +156,8 @@ func StartClientAPI(port string) error {
 	http.HandleFunc("/login", gcalwrapper.HandleLogin)
 	http.HandleFunc("/GoogleLogin", gcalwrapper.HandleGoogleLogin)
 	http.HandleFunc("/GoogleCallback", gcalwrapper.HandleGoogleCallback)
-	http.HandleFunc(epIDEndpoint, getUpcomingEpisodes)
-	http.HandleFunc(epSearchEndpoint, searchUpcomingEpisodes)
+	http.HandleFunc(getEpisodesEndpoint, handleGetEpisodes)
+	http.HandleFunc(showSearchEndpoint, handleShowSearch)
 	http.HandleFunc(createEventEndpoint, calendarAddHandler)
 
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
@@ -191,4 +197,11 @@ func calendarAddHandler(w http.ResponseWriter, r *http.Request) {
 		// TODO handle errors better
 		fmt.Println("calendarAddHandler():", err)
 	}
+}
+
+func setupCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+	(*w).Header().Set("Access-Control-Allow-Headers",
+		"Accept, Content-Type, Content-Length, Accept-Encoding")
 }
