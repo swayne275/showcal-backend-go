@@ -197,3 +197,50 @@ func TestCheckForCandidateShows(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckForFutureEpisodes(t *testing.T) {
+	cases := []struct {
+		name        string
+		inData      string
+		inQuery     int64
+		expectedOut bool
+		expectedErr bool
+	}{
+		{
+			name:        "2550 good data",
+			inData:      "{\"tvShow\":{\"id\":2550,\"name\":\"American Dad!\",\"countdown\":{\"season\":15,\"episode\":20,\"name\":\"The Hand that Rocks the Rogu\",\"air_date\":\"2119-08-27 02:00:00\"}}}",
+			inQuery:     2550,
+			expectedOut: true,
+			expectedErr: false,
+		},
+		{
+			name:        "2550 missing object",
+			inData:      "{\"tvShow\":{\"id\":2550,\"name\":\"American Dad!\"}}",
+			inQuery:     2550,
+			expectedOut: false,
+			expectedErr: true,
+		},
+		{
+			name:        "2550 null object",
+			inData:      "{\"tvShow\":{\"id\":2550,\"name\":\"American Dad!\",\"countdown\":null}}",
+			inQuery:     2550,
+			expectedOut: false,
+			expectedErr: false,
+		},
+	}
+
+	for _, c := range cases {
+		out, err := checkForFutureEpisodes(c.inData, c.inQuery)
+		gotErr := (err != nil)
+
+		if gotErr != c.expectedErr {
+			t.Errorf("incorrect output error for '%s': expected '%t', got '%t'",
+				c.name, c.expectedErr, gotErr)
+		}
+
+		if out != c.expectedOut {
+			t.Errorf("incorrect output error for '%s': expected '%t', got '%t'",
+				c.name, c.expectedErr, gotErr)
+		}
+	}
+}
