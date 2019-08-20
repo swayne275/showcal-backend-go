@@ -169,8 +169,9 @@ func httpGet(url string) (string, error) {
 
 // Determines if there are any shows matching query from the API
 func checkForCandidateShows(queryData, query string) (bool, error) {
-	total := gjson.Get(queryData, "total")
 	msg := fmt.Sprintf("error getting total shows for query '%s'", query)
+	total := gjson.Get(queryData, "total")
+
 	if !total.Exists() {
 		err := gerrors.Wrapf(gerrors.New("missing 'total'"), msg)
 		return false, err

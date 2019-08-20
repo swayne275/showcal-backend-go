@@ -130,3 +130,70 @@ func TestGetShowURLs(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckForCandidateShows(t *testing.T) {
+	cases := []struct {
+		inData      string
+		inQuery     string
+		expectedOut bool
+		expectErr   bool
+	}{
+		{
+			inData:      "{\"page\":1,\"pages\":0,\"tv_shows\":[]}",
+			inQuery:     "nototal",
+			expectedOut: false,
+			expectErr:   true,
+		},
+		{
+			inData:      "{\"total\":0,\"page\":1,\"pages\":0,\"tv_shows\":[]}",
+			inQuery:     "badtotal-type",
+			expectedOut: false,
+			expectErr:   true,
+		},
+		{
+			inData:      "{\"total\":\"hello\",\"page\":1,\"pages\":0,\"tv_shows\":[]}",
+			inQuery:     "badtotal-value",
+			expectedOut: false,
+			expectErr:   true,
+		},
+		{
+			inData:      "{\"total\":\"1\",\"page\":1,\"pages\":0}",
+			inQuery:     "noshows-missing",
+			expectedOut: false,
+			expectErr:   true,
+		},
+		{
+			inData:      "{\"total\":\"1\",\"page\":1,\"pages\":0,\"tv_shows\":\"hello\"}",
+			inQuery:     "noshows-type",
+			expectedOut: false,
+			expectErr:   true,
+		},
+		{
+			inData:      "{\"total\":\"0\",\"page\":1,\"pages\":0,\"tv_shows\":[]}",
+			inQuery:     "somerandomjunk",
+			expectedOut: false,
+			expectErr:   false,
+		},
+		{
+			inData:      "{\"total\":\"1\",\"page\":1,\"pages\":1,\"tv_shows\":[{\"id\":2550,\"name\":\"American Dad!\",\"permalink\":\"american-dad\",\"start_date\":\"2005-02-06\",\"end_date\":null,\"country\":\"US\",\"network\":\"TBS\",\"status\":\"Running\",\"image_thumbnail_path\":\"https://static.episodate.com/images/tv-show/thumbnail/2550.jpg\"}]}",
+			inQuery:     "American Dad",
+			expectedOut: true,
+			expectErr:   false,
+		},
+	}
+
+	for _, c := range cases {
+		out, err := checkForCandidateShows(c.inData, c.inQuery)
+		gotErr := (err != nil)
+
+		if gotErr != c.expectErr {
+			t.Errorf("incorrect output error for '%s': expected '%t', got '%t'",
+				c.inQuery, c.expectErr, gotErr)
+		}
+
+		if out != c.expectedOut {
+			t.Errorf("incorrect output for '%s': expected '%t', got '%t'",
+				c.inQuery, c.expectedOut, out)
+		}
+	}
+}
