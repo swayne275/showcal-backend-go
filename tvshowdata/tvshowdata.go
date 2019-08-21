@@ -225,6 +225,11 @@ func checkForFutureEpisodes(showData string, ID int64) (bool, error) {
 // Unmarshals any shows matching the query to appropriate format
 func parseCandidateShows(queryData string) (Shows, error) {
 	allCandidates := gjson.Get(queryData, "tv_shows")
+	if !allCandidates.Exists() {
+		return Shows{}, gerrors.New("No 'tv_shows' field in API response")
+	}
+
+	// TODO runtime isn't included in this data
 	runtimeValue := gjson.Get(queryData, "runtime")
 	var runtime int64
 	if !runtimeValue.Exists() || runtimeValue.Int() == 0 {
@@ -245,6 +250,10 @@ func parseCandidateShows(queryData string) (Shows, error) {
 			msg := "Could not unmarshal show from API"
 			err = gerrors.Wrapf(err, msg)
 			// stop iterating
+			return false
+		}
+		if show == (Show{}) {
+			err = gerrors.New(fmt.Sprintf("Couldn't parse show data for: '%s'", value.String()))
 			return false
 		}
 
