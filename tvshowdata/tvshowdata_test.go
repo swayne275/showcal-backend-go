@@ -257,16 +257,14 @@ func TestParseCandidateShows(t *testing.T) {
 			inData: "{\"total\":\"1\",\"page\":1,\"pages\":1,\"tv_shows\":[{\"id\":2550,\"name\":\"American Dad!\",\"permalink\":\"american-dad\",\"start_date\":\"2005-02-06\",\"end_date\":null,\"country\":\"US\",\"network\":\"TBS\",\"status\":\"Running\",\"image_thumbnail_path\":\"https://static.episodate.com/images/tv-show/thumbnail/2550.jpg\"},{\"id\":25501,\"name\":\"American Dad1!\",\"permalink\":\"american-dad\",\"start_date\":\"2005-02-06\",\"end_date\":null,\"country\":\"US\",\"network\":\"TBS\",\"status\":\"Running\",\"image_thumbnail_path\":\"https://static.episodate.com/images/tv-show/thumbnail/2550.jpg\"}]}",
 			expectedOut: Shows{[]Show{
 				Show{
-					Name:           "American Dad!",
-					ID:             2550,
-					RuntimeMinutes: 30,
-					StillRunning:   Running{true},
+					Name:         "American Dad!",
+					ID:           2550,
+					StillRunning: Running{true},
 				},
 				Show{
-					Name:           "American Dad1!",
-					ID:             25501,
-					RuntimeMinutes: 30,
-					StillRunning:   Running{true},
+					Name:         "American Dad1!",
+					ID:           25501,
+					StillRunning: Running{true},
 				},
 			}},
 			expectErr: false,
