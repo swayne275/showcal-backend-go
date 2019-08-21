@@ -57,10 +57,9 @@ type Episodes struct {
 
 // Show is the basic show details, and if it is still running
 type Show struct {
-	Name           string  `json:"name"`
-	ID             int64   `json:"id"`
-	RuntimeMinutes int64   `json:"runtime"`
-	StillRunning   Running `json:"status"`
+	Name         string  `json:"name"`
+	ID           int64   `json:"id"`
+	StillRunning Running `json:"status"`
 }
 
 // Shows is the list of candidate Shows for the query
@@ -169,8 +168,9 @@ func httpGet(url string) (string, error) {
 
 // Determines if there are any shows matching query from the API
 func checkForCandidateShows(queryData, query string) (bool, error) {
-	total := gjson.Get(queryData, "total")
 	msg := fmt.Sprintf("error getting total shows for query '%s'", query)
+	total := gjson.Get(queryData, "total")
+
 	if !total.Exists() {
 		err := gerrors.Wrapf(gerrors.New("missing 'total'"), msg)
 		return false, err
@@ -224,13 +224,8 @@ func checkForFutureEpisodes(showData string, ID int64) (bool, error) {
 // Unmarshals any shows matching the query to appropriate format
 func parseCandidateShows(queryData string) (Shows, error) {
 	allCandidates := gjson.Get(queryData, "tv_shows")
-	runtimeValue := gjson.Get(queryData, "runtime")
-	var runtime int64
-	if !runtimeValue.Exists() || runtimeValue.Int() == 0 {
-		// default to a 30 minute runtime if not given
-		runtime = 30
-	} else {
-		runtime = runtimeValue.Int()
+	if !allCandidates.Exists() {
+		return Shows{}, gerrors.New("No 'tv_shows' field in API response")
 	}
 
 	// declare error here to preserve any error from the ForEach loop
@@ -246,8 +241,10 @@ func parseCandidateShows(queryData string) (Shows, error) {
 			// stop iterating
 			return false
 		}
-
-		show.RuntimeMinutes = runtime
+		if show == (Show{}) {
+			err = gerrors.New(fmt.Sprintf("Couldn't parse show data for: '%s'", value.String()))
+			return false
+		}
 		candidateShows.Shows = append(candidateShows.Shows, show)
 
 		// keep iterating
