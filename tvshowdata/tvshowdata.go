@@ -288,6 +288,11 @@ func parseUpcomingEpisodes(showData string) (Episodes, error) {
 			// stop iterating
 			return false
 		}
+		if episode == (Episode{}) {
+			err = gerrors.New(fmt.Sprintf("Couldn't parse episode data for: '%s'", value.String()))
+			return false
+		}
+		fmt.Printf("%+v\n", episode)
 
 		episode.RuntimeMinutes = runtimeMin.Int()
 		episode.ShowName = showName.String()
