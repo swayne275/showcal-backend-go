@@ -5,6 +5,7 @@ package tvshowdata
 
 import (
 	"testing"
+	"time"
 )
 
 // Tests Time method UnmarshalJSON()
@@ -302,6 +303,92 @@ func TestParseCandidateShows(t *testing.T) {
 			if out.Shows[idx] != show {
 				t.Errorf("incorrect output for '%s': expected '%+v', got '%+v'",
 					c.name, show, out.Shows[idx])
+			}
+		}
+	}
+}
+
+// convert time into episode format, throw away error (convenience)
+func timeParseNoErr(format, timeToConvert string) Time {
+	convertedTime, _ := time.Parse(timeStrFormat, timeToConvert)
+	return Time{convertedTime}
+}
+
+func TestParseUpcomingEpisodes(t *testing.T) {
+	cases := []struct {
+		name    string
+		input   string
+		want    Episodes
+		wantErr bool
+	}{
+		{
+			name:  "good data, two episodes",
+			input: "{\"tvShow\":{\"id\":2550,\"name\":\"American Dad!\",\"description\":\"cut\",\"status\":\"Running\",\"runtime\":30,\"image_thumbnail_path\":\"https://static.episodate.com/images/tv-show/thumbnail/2550.jpg\",\"rating\":\"9.0625\",\"rating_count\":\"16\",\"countdown\":{\"season\":15,\"episode\":20,\"name\":\"The Hand that Rocks the Rogu\",\"air_date\":\"2019-08-27 02:00:00\"},\"episodes\":[{\"season\":15,\"episode\":21,\"name\":\"Downtown\",\"air_date\":\"2119-09-03 02:00:00\"},{\"season\":15,\"episode\":22,\"name\":\"Cheek to Cheek: A Stripper's Story\",\"air_date\":\"2119-09-10 02:00:00\"}]}}",
+			want: Episodes{[]Episode{
+				Episode{
+					Season:         15,
+					Episode:        21,
+					Title:          "Downtown",
+					AirDate:        timeParseNoErr(timeStrFormat, "2119-09-03 02:00:00"),
+					RuntimeMinutes: 30,
+					ShowName:       "American Dad!",
+				},
+				Episode{
+					Season:         15,
+					Episode:        22,
+					Title:          "Cheek to Cheek: A Stripper's Story",
+					AirDate:        timeParseNoErr(timeStrFormat, "2119-09-10 02:00:00"),
+					RuntimeMinutes: 30,
+					ShowName:       "American Dad!",
+				},
+			}},
+			wantErr: false,
+		},
+		{
+			name:    "no episodes",
+			input:   "{\"tvShow\":{\"id\":2550,\"name\":\"American Dad!\",\"description\":\"cut\",\"status\":\"Running\",\"runtime\":30,\"image_thumbnail_path\":\"https://static.episodate.com/images/tv-show/thumbnail/2550.jpg\",\"rating\":\"9.0625\",\"rating_count\":\"16\",\"countdown\":{\"season\":15,\"episode\":20,\"name\":\"The Hand that Rocks the Rogu\",\"air_date\":\"2019-08-27 02:00:00\"}}}",
+			want:    Episodes{},
+			wantErr: true,
+		},
+		{
+			name:    "no show name",
+			input:   "{\"tvShow\":{\"id\":2550,\"description\":\"cut\",\"status\":\"Running\",\"runtime\":30,\"image_thumbnail_path\":\"https://static.episodate.com/images/tv-show/thumbnail/2550.jpg\",\"rating\":\"9.0625\",\"rating_count\":\"16\",\"countdown\":{\"season\":15,\"episode\":20,\"name\":\"The Hand that Rocks the Rogu\",\"air_date\":\"2019-08-27 02:00:00\"},\"episodes\":[{\"season\":15,\"episode\":21,\"name\":\"Downtown\",\"air_date\":\"2119-09-03 02:00:00\"},{\"season\":15,\"episode\":22,\"name\":\"Cheek to Cheek: A Stripper's Story\",\"air_date\":\"2119-09-10 02:00:00\"}]}}",
+			want:    Episodes{},
+			wantErr: true,
+		},
+		{
+			name:    "no run time",
+			input:   "{\"tvShow\":{\"id\":2550,\"name\":\"American Dad!\",\"description\":\"cut\",\"status\":\"Running\",\"image_thumbnail_path\":\"https://static.episodate.com/images/tv-show/thumbnail/2550.jpg\",\"rating\":\"9.0625\",\"rating_count\":\"16\",\"countdown\":{\"season\":15,\"episode\":20,\"name\":\"The Hand that Rocks the Rogu\",\"air_date\":\"2019-08-27 02:00:00\"},\"episodes\":[{\"season\":15,\"episode\":21,\"name\":\"Downtown\",\"air_date\":\"2119-09-03 02:00:00\"},{\"season\":15,\"episode\":22,\"name\":\"Cheek to Cheek: A Stripper's Story\",\"air_date\":\"2119-09-10 02:00:00\"}]}}",
+			want:    Episodes{},
+			wantErr: true,
+		},
+		{
+			name:    "bad episode data",
+			input:   "{\"tvShow\":{\"id\":2550,\"name\":\"American Dad!\",\"description\":\"cut\",\"status\":\"Running\",\"runtime\":30,\"image_thumbnail_path\":\"https://static.episodate.com/images/tv-show/thumbnail/2550.jpg\",\"rating\":\"9.0625\",\"rating_count\":\"16\",\"countdown\":{\"season\":15,\"episode\":20,\"name\":\"The Hand that Rocks the Rogu\",\"air_date\":\"2019-08-27 02:00:00\"},\"episodes\":[{5},{\"season\":15,\"episode\":22,\"name\":\"Cheek to Cheek: A Stripper's Story\",\"air_date\":\"2119-09-10 02:00:00\"}]}}",
+			want:    Episodes{},
+			wantErr: true,
+		},
+		{
+			name:    "bad episode data",
+			input:   "{\"tvShow\":{\"id\":2550,\"name\":\"American Dad!\",\"description\":\"cut\",\"status\":\"Running\",\"runtime\":30,\"image_thumbnail_path\":\"https://static.episodate.com/images/tv-show/thumbnail/2550.jpg\",\"rating\":\"9.0625\",\"rating_count\":\"16\",\"countdown\":{\"season\":15,\"episode\":20,\"name\":\"The Hand that Rocks the Rogu\",\"air_date\":\"2019-08-27 02:00:00\"},\"episodes\":[{\"s1\":15,\"s2\":22,\"s3\":\"Cheek to Cheek: A Stripper's Story\",\"s4\":\"2119-09-10 02:00:00\"}]}}",
+			want:    Episodes{},
+			wantErr: true,
+		},
+	}
+
+	for _, c := range cases {
+		got, err := parseUpcomingEpisodes(c.input)
+		gotErr := (err != nil)
+
+		if gotErr != c.wantErr {
+			t.Errorf("incorrect output error for '%s': expected '%t', got '%t'",
+				c.name, c.wantErr, gotErr)
+		}
+
+		for idx, episode := range c.want.Episodes {
+			if got.Episodes[idx] != episode {
+				t.Errorf("incorrect output for '%s': expected '%+v', got '%+v'",
+					c.name, episode, got.Episodes[idx])
 			}
 		}
 	}
