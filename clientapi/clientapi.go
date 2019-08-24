@@ -33,7 +33,7 @@ const (
 )
 
 func sayHello(w http.ResponseWriter, r *http.Request) {
-	setupCors(&w)
+	setupCors(w)
 	if (*r).Method == "OPTIONS" {
 		return
 	}
@@ -73,7 +73,7 @@ func getQueryParam(key string, r *http.Request) (string, error) {
 }
 
 func handleGetEpisodes(w http.ResponseWriter, r *http.Request) {
-	setupCors(&w)
+	setupCors(w)
 	if (*r).Method == "OPTIONS" {
 		return
 	}
@@ -115,7 +115,7 @@ func handleGetEpisodes(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleShowSearch(w http.ResponseWriter, r *http.Request) {
-	setupCors(&w)
+	setupCors(w)
 	if (*r).Method == "OPTIONS" {
 		return
 	}
@@ -199,9 +199,10 @@ func calendarAddHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func setupCors(w *http.ResponseWriter) {
-	(*w).Header().Set("Access-Control-Allow-Origin", "*")
-	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-	(*w).Header().Set("Access-Control-Allow-Headers",
+// setup Cross-Origin Resource Sharing in handler for browser clients
+func setupCors(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers",
 		"Accept, Content-Type, Content-Length, Accept-Encoding")
 }
