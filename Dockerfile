@@ -8,7 +8,7 @@ WORKDIR /go/src/github.com/swayne275/showcal-backend-go
 COPY . .
 
 # Install dependencies
-RUN go get "https://github.com/pkg/errors" \
+RUN go get "github.com/pkg/errors" \
 	       "github.com/tidwall/gjson" \
 	       "golang.org/x/net/context" \
 	       "golang.org/x/oauth2" \
