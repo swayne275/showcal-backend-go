@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/swayne275/gerrors"
+	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 )
 
@@ -77,7 +77,7 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 	var s string
 
 	if err := json.Unmarshal(data, &s); err != nil {
-		return gerrors.Wrapf(err, "Unable to unmarshal time from API")
+		return errors.Wrapf(err, "Unable to unmarshal time from API")
 	}
 
 	// first try parsing as RFC3339 in case it's in the proper format
@@ -90,7 +90,7 @@ func (t *Time) UnmarshalJSON(data []byte) error {
 
 	t.Time, err = time.Parse(timeStrFormat, s)
 	if err != nil {
-		return gerrors.Wrapf(err, fmt.Sprintf("unable to reformat time: %s", s))
+		return errors.Wrapf(err, fmt.Sprintf("unable to reformat time: %s", s))
 	}
 
 	return nil
@@ -111,7 +111,7 @@ func (r *Running) UnmarshalJSON(data []byte) error {
 	var running string
 
 	if err := json.Unmarshal(data, &running); err != nil {
-		return gerrors.Wrapf(err, "Unable to unmarshal show running status from API")
+		return errors.Wrapf(err, "Unable to unmarshal show running status from API")
 	}
 
 	r.bool = (strings.ToLower(running) == "running")
@@ -146,20 +146,19 @@ func httpGet(url string) (string, error) {
 	resp, err := http.Get(url)
 
 	if err != nil {
-		err = gerrors.Wrapf(err, errMsg)
+		err = errors.Wrapf(err, errMsg)
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		newErr := fmt.Sprintf("Got HTTP StatusCode: %d", resp.StatusCode)
-		err = gerrors.Wrapf(gerrors.New(newErr), errMsg)
+		err = errors.New(fmt.Sprintf("%s: Got HTTP StatusCode: %d", errMsg, resp.StatusCode))
 		return "", err
 	}
 
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		err = gerrors.Wrapf(err, errMsg)
+		err = errors.Wrapf(err, errMsg)
 		return "", err
 	}
 
@@ -172,18 +171,18 @@ func checkForCandidateShows(queryData, query string) (bool, error) {
 	total := gjson.Get(queryData, "total")
 
 	if !total.Exists() {
-		err := gerrors.Wrapf(gerrors.New("missing 'total'"), msg)
+		err := errors.Wrapf(errors.New("missing 'total'"), msg)
 		return false, err
 	}
 	if !(total.Type.String() == gjsonString) {
 		// For some reason the total field is a string
-		err := gerrors.Wrapf(gerrors.New("incorrect type for 'total'"), msg)
+		err := errors.Wrapf(errors.New("incorrect type for 'total'"), msg)
 		return false, err
 	}
 
 	numShows, err := strconv.Atoi(total.String())
 	if err != nil {
-		err := gerrors.Wrapf(err, "could not convert 'total' to int")
+		err := errors.Wrapf(err, "could not convert 'total' to int")
 		return false, err
 	}
 	if numShows < 1 {
@@ -194,11 +193,11 @@ func checkForCandidateShows(queryData, query string) (bool, error) {
 	// verify matching show data exists
 	tvShows := gjson.Get(queryData, "tv_shows")
 	if !tvShows.Exists() {
-		err := gerrors.Wrapf(gerrors.New("no 'tv_shows'"), msg)
+		err := errors.New(fmt.Sprintf("%s: no 'tv_shows'", msg))
 		return false, err
 	}
 	if !(tvShows.Type.String() == gjsonJSON) {
-		err := gerrors.Wrapf(gerrors.New("invalid 'tv_shows' type"), msg)
+		err := errors.New(fmt.Sprintf("%s: invalid 'tv_shows' type", msg))
 		return false, err
 	}
 
@@ -210,7 +209,7 @@ func checkForFutureEpisodes(showData string, ID int64) (bool, error) {
 	countdown := gjson.Get(showData, "tvShow.countdown")
 	if !countdown.Exists() {
 		msg := fmt.Sprintf("api returned invalid countdown data for queryID: %d", ID)
-		err := gerrors.Wrapf(gerrors.New("missing tvShow.countdown"), msg)
+		err := errors.New(fmt.Sprintf("%s: missing tvShow.countdown", msg))
 		return false, err
 	}
 	if countdown.Type.String() == gjsonNull {
@@ -225,7 +224,7 @@ func checkForFutureEpisodes(showData string, ID int64) (bool, error) {
 func parseCandidateShows(queryData string) (Shows, error) {
 	allCandidates := gjson.Get(queryData, "tv_shows")
 	if !allCandidates.Exists() {
-		return Shows{}, gerrors.New("No 'tv_shows' field in API response")
+		return Shows{}, errors.New("No 'tv_shows' field in API response")
 	}
 
 	// declare error here to preserve any error from the ForEach loop
@@ -237,12 +236,12 @@ func parseCandidateShows(queryData string) (Shows, error) {
 		err = json.Unmarshal([]byte(value.String()), &show)
 		if err != nil {
 			msg := "Could not unmarshal show from API"
-			err = gerrors.Wrapf(err, msg)
+			err = errors.Wrapf(err, msg)
 			// stop iterating
 			return false
 		}
 		if show == (Show{}) {
-			err = gerrors.New(fmt.Sprintf("Couldn't parse show data for: '%s'", value.String()))
+			err = errors.New(fmt.Sprintf("Couldn't parse show data for: '%s'", value.String()))
 			return false
 		}
 		candidateShows.Shows = append(candidateShows.Shows, show)
@@ -262,15 +261,15 @@ func parseUpcomingEpisodes(showData string) (Episodes, error) {
 	runtimeMin := gjson.Get(showData, "tvShow.runtime")
 	allEpisodes := gjson.Get(showData, "tvShow.episodes")
 	if !allEpisodes.Exists() || !allEpisodes.IsArray() {
-		err := gerrors.Wrapf(gerrors.New("no episode list in api response"), errMsg)
+		err := errors.New(fmt.Sprintf("%s: no episode list in api response", errMsg))
 		return Episodes{}, err
 	}
 	if !showName.Exists() {
-		err := gerrors.Wrapf(gerrors.New("No name' in api response"), errMsg)
+		err := errors.New(fmt.Sprintf("%s: No 'name' in api response", errMsg))
 		return Episodes{}, err
 	}
 	if !runtimeMin.Exists() || runtimeMin.Int() == 0 {
-		err := gerrors.Wrapf(gerrors.New("Missing/invalid 'runtime' in API response"), errMsg)
+		err := errors.New(fmt.Sprintf("%s: Missing/invalid 'runtime' in API response", errMsg))
 		return Episodes{}, err
 	}
 
@@ -284,12 +283,12 @@ func parseUpcomingEpisodes(showData string) (Episodes, error) {
 		err = json.Unmarshal([]byte(value.String()), &episode)
 		if err != nil {
 			msg := "Could not unmarshal episode from API"
-			err = gerrors.Wrapf(err, msg)
+			err = errors.Wrapf(err, msg)
 			// stop iterating
 			return false
 		}
 		if episode == (Episode{}) {
-			err = gerrors.New(fmt.Sprintf("Couldn't parse episode data for: '%s'", value.String()))
+			err = errors.New(fmt.Sprintf("Couldn't parse episode data for: '%s'", value.String()))
 			return false
 		}
 
@@ -310,26 +309,25 @@ func parseUpcomingEpisodes(showData string) (Episodes, error) {
 func getUpcomingShows(query string) (Shows, error) {
 	url, err := getShowSearchURL(query)
 	if err != nil {
-		err := gerrors.Wrap(err, "error in getUpcomingShows()")
+		err := errors.Wrap(err, "error in getUpcomingShows()")
 		return Shows{}, err
 	}
 
 	resp, err := httpGet(url)
 	if err != nil {
 		msg := "error calling httpGet wrapper in getUpcomingShows"
-		err = gerrors.Wrapf(err, msg)
+		err = errors.Wrapf(err, msg)
 		return Shows{}, err
 	}
 
 	haveCandidates, err := checkForCandidateShows(resp, query)
 	if err != nil {
 		msg := "error checking if candidates exist"
-		err = gerrors.Wrapf(err, msg)
+		err = errors.Wrapf(err, msg)
 		return Shows{}, err
 	}
 	if !haveCandidates {
-		err := gerrors.Wrapf(gerrors.New("No matching shows"),
-			fmt.Sprintf("No shows matching query %s", query))
+		err := errors.New(fmt.Sprintf("No shows matching query %s", query))
 		return Shows{}, err
 	}
 
@@ -342,19 +340,18 @@ func getUpcomingEpisodes(queryID int64) (Episodes, error) {
 	resp, err := httpGet(url)
 	if err != nil {
 		msg := "error calling httpGet wrapper"
-		err = gerrors.Wrapf(err, msg)
+		err = errors.Wrapf(err, msg)
 		return Episodes{}, err
 	}
 
 	haveFutureEpisodes, err := checkForFutureEpisodes(resp, queryID)
 	if err != nil {
 		msg := "Error checking if future episodes exist"
-		err = gerrors.Wrapf(err, msg)
+		err = errors.Wrapf(err, msg)
 		return Episodes{}, err
 	}
 	if !haveFutureEpisodes {
-		err := gerrors.Wrapf(gerrors.New("No upcoming episodes"),
-			fmt.Sprintf("No upcoming episodes found for queryID %d", queryID))
+		err := errors.New(fmt.Sprintf("No upcoming episodes found for queryID %d", queryID))
 		return Episodes{}, err
 	}
 
@@ -364,8 +361,7 @@ func getUpcomingEpisodes(queryID int64) (Episodes, error) {
 // getShowSearchURL returns the endpoint to search for shows matching query
 func getShowSearchURL(query string) (string, error) {
 	if query == "" {
-		err := gerrors.Wrapf(gerrors.New("Empty 'query' given"),
-			"Invalid data passed to getShowSearchURL()")
+		err := errors.New("Empty 'query' given")
 		return "", err
 	}
 
