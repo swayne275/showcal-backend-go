@@ -23,7 +23,7 @@ run:
 	$(GOBUILD) -o $(BINARY_NAME) -v
 	./$(BINARY_NAME)
 deps:
-	$(GOGET) "github.com/swayne275/gerrors"
+	$(GOGET) "github.com/pkg/errors"
 	$(GOGET) "github.com/tidwall/gjson"
 	$(GOGET) "golang.org/x/net/context"
 	$(GOGET) "golang.org/x/oauth2"

@@ -19,7 +19,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/swayne275/gerrors"
+	"github.com/pkg/errors"
 	"github.com/swayne275/showcal-backend-go/tvshowdata"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -152,13 +152,13 @@ func HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 func createSingleEvent(event BasicEvent, service *calendar.Service) error {
 	gcalEvent, err := buildCalendarEvent(event)
 	if err != nil {
-		err = gerrors.Wrapf(err, "Error in createSingleEvent()")
+		err = errors.Wrapf(err, "Error in createSingleEvent()")
 		return err
 	}
 
 	createdEvent, err := service.Events.Insert("primary", &gcalEvent).Do()
 	if err != nil {
-		err = gerrors.Wrapf(err, "Error in createSingleEvent()")
+		err = errors.Wrapf(err, "Error in createSingleEvent()")
 		return err
 	}
 
@@ -169,8 +169,7 @@ func createSingleEvent(event BasicEvent, service *calendar.Service) error {
 // Converts standard struct into google calendar event format
 func buildCalendarEvent(event BasicEvent) (calendar.Event, error) {
 	if event.Summary == "" {
-		err := gerrors.Wrapf(gerrors.New("No event summary"),
-			"Error in buildCalendarEvent()")
+		err := errors.New("No event summary")
 		return calendar.Event{}, err
 	}
 
