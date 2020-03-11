@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/swayne275/gerrors"
+	"github.com/pkg/errors"
 	"github.com/swayne275/showcal-backend-go/gcalwrapper"
 	"github.com/swayne275/showcal-backend-go/tvshowdata"
 )
@@ -54,7 +54,7 @@ func getRequestBody(r http.Request) ([]byte, error) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		msg := fmt.Sprintf("Error in getRequestBody() for URI %s", r.RequestURI)
-		err = gerrors.Wrapf(err, msg)
+		err = errors.Wrapf(err, msg)
 		return body, err
 	}
 
@@ -65,7 +65,7 @@ func getRequestBody(r http.Request) ([]byte, error) {
 func getQueryParam(key string, r *http.Request) (string, error) {
 	keys, ok := r.URL.Query()[key]
 	if !ok || len(keys[0]) < 1 {
-		err := gerrors.New(fmt.Sprintf("URL param '%s' is missing", key))
+		err := errors.New(fmt.Sprintf("URL param '%s' is missing", key))
 		return "", err
 	}
 
@@ -97,7 +97,7 @@ func handleGetEpisodes(w http.ResponseWriter, r *http.Request) {
 		output, err := json.Marshal(episodes)
 		if err != nil {
 			msg := fmt.Sprintf("Unable to process upcoming shows in %s", getEpisodesEndpoint)
-			err = gerrors.Wrapf(err, msg)
+			err = errors.Wrapf(err, msg)
 			fmt.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -133,7 +133,7 @@ func handleShowSearch(w http.ResponseWriter, r *http.Request) {
 		output, err := json.Marshal(candidateShows)
 		if err != nil {
 			msg := fmt.Sprintf("Unable to process candidate shows in %s", showSearchEndpoint)
-			err = gerrors.Wrapf(err, msg)
+			err = errors.Wrapf(err, msg)
 			fmt.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -150,26 +150,7 @@ func handleShowSearch(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// StartClientAPI starts the web server hosting the client API
-func StartClientAPI(port string) error {
-	http.HandleFunc("/", sayHello)
-	http.HandleFunc("/login", gcalwrapper.HandleLogin)
-	http.HandleFunc("/GoogleLogin", gcalwrapper.HandleGoogleLogin)
-	http.HandleFunc("/GoogleCallback", gcalwrapper.HandleGoogleCallback)
-	http.HandleFunc(getEpisodesEndpoint, handleGetEpisodes)
-	http.HandleFunc(showSearchEndpoint, handleShowSearch)
-	http.HandleFunc(createEventEndpoint, calendarAddHandler)
-
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		msg := fmt.Sprintf("Could not start client API server on port %s", port)
-		err = gerrors.Wrapf(err, msg)
-		return err
-	}
-
-	return nil
-}
-
-func calendarAddHandler(w http.ResponseWriter, r *http.Request) {
+func handleCalendarAdd(w http.ResponseWriter, r *http.Request) {
 	body, err := getRequestBody(*r)
 	if err != nil {
 		fmt.Println(err)
@@ -195,8 +176,27 @@ func calendarAddHandler(w http.ResponseWriter, r *http.Request) {
 	_, err = w.Write([]byte(msg))
 	if err != nil {
 		// TODO handle errors better
-		fmt.Println("calendarAddHandler():", err)
+		fmt.Println("handleCalendarAdd():", err)
 	}
+}
+
+// StartClientAPI starts the web server hosting the client API
+func StartClientAPI(port string) error {
+	http.HandleFunc("/", sayHello)
+	http.HandleFunc("/login", gcalwrapper.HandleLogin)
+	http.HandleFunc("/GoogleLogin", gcalwrapper.HandleGoogleLogin)
+	http.HandleFunc("/GoogleCallback", gcalwrapper.HandleGoogleCallback)
+	http.HandleFunc(getEpisodesEndpoint, handleGetEpisodes)
+	http.HandleFunc(showSearchEndpoint, handleShowSearch)
+	http.HandleFunc(createEventEndpoint, handleCalendarAdd)
+
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		msg := fmt.Sprintf("Could not start client API server on port %s", port)
+		err = errors.Wrapf(err, msg)
+		return err
+	}
+
+	return nil
 }
 
 // setup Cross-Origin Resource Sharing in handler for browser clients
